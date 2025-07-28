@@ -1,8 +1,13 @@
 import { Button, VerticalBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
+    title: "Can Upgrade";
+    width: 600px;
+    height: 400px;
+    icon: @image-url("can-logo.png");
     in-out property <int> counter: 42;
     callback request-increase-value();
+    callback request-disincrease-value();
     VerticalBox {
         Text {
             text: "Counter: \{root.counter}";
@@ -12,6 +17,12 @@ export component AppWindow inherits Window {
             text: "Increase value";
             clicked => {
                 root.request-increase-value();
+            }
+        }
+        Button {
+            text: "Disincrease value";
+            clicked => {
+                root.request-disincrease-value();
             }
         }
     }

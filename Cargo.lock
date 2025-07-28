@@ -442,30 +442,10 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "rustc-hash 1.1.0",
+ "rustc-hash",
  "shlex",
  "syn",
  "which",
-]
-
-[[package]]
-name = "bindgen"
-version = "0.72.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f72209734318d0b619a5e0f5129918b848c416e122a3c4ce054e03cb87b726f"
-dependencies = [
- "bitflags 2.9.1",
- "cexpr",
- "clang-sys",
- "itertools 0.13.0",
- "log",
- "prettyplease",
- "proc-macro2",
- "quote",
- "regex",
- "rustc-hash 2.1.1",
- "shlex",
- "syn",
 ]
 
 [[package]]
@@ -625,9 +605,10 @@ dependencies = [
 name = "can-firmware-upgrade"
 version = "0.1.0"
 dependencies = [
- "bindgen 0.72.0",
+ "peak-can-sys",
  "slint",
  "slint-build",
+ "winres",
 ]
 
 [[package]]
@@ -2961,6 +2942,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
+name = "peak-can-sys"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "abdc770c146d436e8eae98775b740e9f19df2ad892fd99405196866aae500c29"
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3310,7 +3297,7 @@ dependencies = [
  "countme",
  "hashbrown 0.14.5",
  "memoffset",
- "rustc-hash 1.1.0",
+ "rustc-hash",
  "text-size",
 ]
 
@@ -3325,12 +3312,6 @@ name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
-
-[[package]]
-name = "rustc-hash"
-version = "2.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
 
 [[package]]
 name = "rustc_version"
@@ -3546,7 +3527,7 @@ version = "0.78.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29880a81b088de322e9c5306236c70761a61b5fa4df3c15c93bad3ce890ce34c"
 dependencies = [
- "bindgen 0.69.5",
+ "bindgen",
  "cc",
  "flate2",
  "heck",
@@ -3554,7 +3535,7 @@ dependencies = [
  "regex",
  "serde_json",
  "tar",
- "toml",
+ "toml 0.8.23",
 ]
 
 [[package]]
@@ -3935,6 +3916,15 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
+name = "toml"
+version = "0.5.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "toml"
@@ -4926,6 +4916,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3edebf492c8125044983378ecb5766203ad3b4c2f7a922bd7dd207f6d443e95"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "winres"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b68db261ef59e9e52806f688020631e987592bd83619edccda9c47d42cde4f6c"
+dependencies = [
+ "toml 0.5.11",
 ]
 
 [[package]]

@@ -8,5 +8,8 @@ slint = "=1.8.0"
 
 [build-dependencies]
 slint-build = "=1.8.0"
-bindgen = "0.72.0"
+winres = "0.1.12"
+
+[target.x86_64-pc-windows-msvc.dependencies]
+peak-can-sys = "0.1.2"
 

@@ -4,9 +4,6 @@ use std::error::Error;
 
 slint::include_modules!();
 
-#[cfg(target_os = "windows")]
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-
 fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
 
@@ -15,6 +12,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         move || {
             let ui = ui_handle.unwrap();
             ui.set_counter(ui.get_counter() + 1);
+        }
+    });
+    ui.on_request_disincrease_value({
+        let ui_handle = ui.as_weak();
+        move || {
+            let ui = ui_handle.unwrap();
+            ui.set_counter(ui.get_counter() - 1);
         }
     });
 
