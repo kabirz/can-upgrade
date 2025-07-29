@@ -6,11 +6,15 @@ export component AppWindow inherits Window {
     height: 400px;
     icon: @image-url("can-logo.png");
     in-out property <int> counter: 42;
+    in-out property <string> file_name: "未选择文件";
     callback request-increase-value();
-    callback request-disincrease-value();
+    callback openfile();
     VerticalBox {
         Text {
             text: "Counter: \{root.counter}";
+        }
+        Text {
+            text: file_name;
         }
 
         Button {
@@ -20,9 +24,9 @@ export component AppWindow inherits Window {
             }
         }
         Button {
-            text: "Disincrease value";
+            text: "打开文件";
             clicked => {
-                root.request-disincrease-value();
+                root.openfile();
             }
         }
     }
