@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmake:*)",
+      "Bash(taskkill:*)",
+      "Bash(del:*)",
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

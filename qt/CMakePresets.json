@@ -1,0 +1,68 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "default",
+            "displayName": "Windows MSVC",
+            "description": "Configuration for Windows with MSVC compiler",
+            "generator": "Visual Studio 18 2026",
+            "architecture": "x64",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "C:/Qt/6.10.1/msvc2022_64"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "Release",
+            "configurePreset": "default",
+            "configuration": "Release"
+        },
+        {
+            "name": "Debug",
+            "configurePreset": "default",
+            "configuration": "Debug"
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "release",
+            "displayName": "Release Workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "default"
+                },
+                {
+                    "type": "build",
+                    "name": "Release"
+                }
+            ]
+        },
+        {
+            "name": "debug",
+            "displayName": "Debug Workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "default"
+                },
+                {
+                    "type": "build",
+                    "name": "Debug"
+                }
+            ]
+        }
+    ]
+}
