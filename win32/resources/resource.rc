@@ -1,0 +1,6 @@
+#include <resource.h>
+// 应用程序图标（IDR_MAINFRAME 是标准 ID）
+IDI_APPICON ICON "icon.ico"
+
+// 窗口图标（可选，通常与主图标相同）
+IDI_APPICON_SMALL ICON "icon.ico"
