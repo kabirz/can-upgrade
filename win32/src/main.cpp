@@ -28,6 +28,28 @@ HFONT g_hAppFont = NULL;  // 全局字体
 
 static const int BAUD_RATES[] = {10000, 20000, 50000, 80000, 125000, 250000, 500000, 1000000};
 
+// Refresh device list and populate combo box
+void RefreshDeviceList() {
+    char channelNames[16][16];
+    int count = CAN_EnumDevices(channelNames, 16);
+
+    SendMessage(g_hChannelCombo, CB_RESETCONTENT, 0, 0);
+
+    if (count > 0) {
+        for (int i = 0; i < count; i++) {
+            wchar_t displayName[16];
+            char tempChannel[16];
+            strcpy(tempChannel, channelNames[i]);
+            tempChannel[0] = toupper(tempChannel[0]);
+            tempChannel[1] = toupper(tempChannel[1]);
+            tempChannel[2] = toupper(tempChannel[2]);
+            MultiByteToWideChar(CP_ACP, 0, tempChannel, -1, displayName, 16);
+            SendMessageW(g_hChannelCombo, CB_ADDSTRING, 0, (LPARAM)displayName);
+        }
+        SendMessage(g_hChannelCombo, CB_SETCURSEL, 0, 0);
+    }
+}
+
 // DPI 缩放辅助函数（需在 WndProc 之前定义）
 int ScaleValue(int value, UINT dpi) {
     return MulDiv(value, dpi, 96);
@@ -209,22 +231,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
                 case IDC_BUTTON_REFRESH: {
                     AppendLog(L"正在扫描PCAN设备...");
-                    const wchar_t* channels[] = {L"USB0", L"USB1", L"USB2", L"USB3"};
-                    const char* channelsA[] = {"usb0", "usb1", "usb2", "usb3"};
-                    bool found = false;
-
-                    for (int i = 0; i < 4; i++) {
-                        if (CAN_DetectDevice(channelsA[i])) {
-                            wchar_t msg[64];
-                            wsprintfW(msg, L"发现设备: %s", channels[i]);
-                            AppendLog(msg);
-                            found = true;
-                        }
-                    }
-
-                    if (!found) {
-                        AppendLog(L"未发现PCAN设备，请检查连接");
-                    }
+                    int prevCount = SendMessage(g_hChannelCombo, CB_GETCOUNT, 0, 0);
+                    RefreshDeviceList();
+                    int newCount = SendMessage(g_hChannelCombo, CB_GETCOUNT, 0, 0);
+                    wchar_t msg[64];
+                    if (newCount == 0)
+                        wsprintfW(msg, L"设备列表已刷新，未发现CAN设备");
+                    else
+                        wsprintfW(msg, L"设备列表已刷新，发现 %d 个CAN设备", newCount);
+                    AppendLog(msg);
                     break;
                 }
 
@@ -307,11 +322,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
     g_hChannelCombo = CreateWindowExW(0, L"COMBOBOX", NULL,
         WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
         SCALE(80), SCALE(28), SCALE(100), 200, g_hMainWindow, (HMENU)IDC_COMBO_CHANNEL, hInstance, NULL);
-    SendMessageW(g_hChannelCombo, CB_ADDSTRING, 0, (LPARAM)L"USB0");
-    SendMessageW(g_hChannelCombo, CB_ADDSTRING, 0, (LPARAM)L"USB1");
-    SendMessageW(g_hChannelCombo, CB_ADDSTRING, 0, (LPARAM)L"USB2");
-    SendMessageW(g_hChannelCombo, CB_ADDSTRING, 0, (LPARAM)L"USB3");
-    SendMessageW(g_hChannelCombo, CB_SETCURSEL, 0, 0);
+    // Auto-detect and populate devices on startup
+    RefreshDeviceList();
 
     CreateWindowExW(0, L"STATIC", L"波特率:", WS_CHILD | WS_VISIBLE | SS_LEFT,
         SCALE(200), SCALE(30), SCALE(60), SCALE(20), g_hMainWindow, NULL, hInstance, NULL);

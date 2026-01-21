@@ -29,9 +29,14 @@ struct CANManager {
 
 // Helper: Convert channel string to PCAN handle
 static TPCANHandle GetPCANHandle(const char* channel) {
-    if (strcmp(channel, "usb1") == 0) return PCAN_USBBUS2;
-    if (strcmp(channel, "usb2") == 0) return PCAN_USBBUS3;
-    if (strcmp(channel, "usb3") == 0) return PCAN_USBBUS4;
+    // Extract numeric suffix from channel string (e.g., "usb0" -> 0, "usb15" -> 15)
+    if (strncmp(channel, "usb", 3) == 0) {
+        int index = atoi(channel + 3);
+        if (index >= 0 && index < 16) {
+            // PCAN_USBBUS1 = 0x510, PCAN_USBBUS2 = 0x520, etc.
+            return (TPCANHandle)(0x510 + index);
+        }
+    }
     return PCAN_USBBUS1;  // default usb0
 }
 
@@ -371,10 +376,36 @@ bool CAN_BoardReboot(CANManager* mgr) {
     return true;
 }
 
-// Device detection using CAN_GetValue with PCAN_CHANNEL_CONDITION
-bool CAN_DetectDevice(const char* channel) {
-    TPCANHandle h = GetPCANHandle(channel);
-    DWORD condition = 0;
-    TPCANStatus status = CAN_GetValue(h, PCAN_CHANNEL_CONDITION, &condition, sizeof(condition));
-    return (status == PCAN_ERROR_OK && (condition & 0x02));  // 0x02 = PCAN_CHANNEL_AVAILABLE
+// Dynamic device enumeration using CAN_LookUpChannel
+// Iterates through possible USB device indices to find all connected devices
+int CAN_EnumDevices(char (*channelNames)[16], int maxCount) {
+    if (!channelNames || maxCount <= 0) return 0;
+
+    int foundCount = 0;
+    char lookupParam[64];
+
+    // Try to find USB devices by iterating through possible indices
+    // CAN_LookUpChannel supports parameters like "device=usb,n=0", "device=usb,n=1", etc.
+    for (int i = 0; i < maxCount && i < 16; i++) {
+        TPCANHandle channel = PCAN_NONEBUS;
+
+        // Build lookup parameter for this USB device index
+        sprintf(lookupParam, "device=usb,n=%d", i);
+
+        TPCANStatus result = CAN_LookUpChannel(lookupParam, &channel);
+        if (result == PCAN_ERROR_OK && channel != PCAN_NONEBUS) {
+            // Successfully found a device, convert handle to channel name
+            // PCAN_USBBUS1 = 0x51, PCAN_USBBUS2 = 0x52, etc.
+            int usbIndex = (channel & 0x0F) - 1;  // Extract channel number
+            if (usbIndex >= 0 && usbIndex < 16) {
+                sprintf(channelNames[foundCount], "usb%d", usbIndex);
+                foundCount++;
+            }
+        } else if (result == PCAN_ERROR_ILLPARAMVAL) {
+            // No more devices to find
+            break;
+        }
+    }
+
+    return foundCount;
 }

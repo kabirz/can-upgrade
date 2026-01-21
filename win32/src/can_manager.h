@@ -36,8 +36,11 @@ CAN_RESULT CAN_Connect(CANManager* mgr, const char* canInterface, const char* ch
 void CAN_Disconnect(CANManager* mgr);
 bool CAN_IsConnected(const CANManager* mgr);
 
-// Device detection
-bool CAN_DetectDevice(const char* channel);
+// Dynamic device enumeration using CAN_LookUpChannel
+// Returns the number of devices found, max 16 devices
+// channelNames: output array to store channel names (e.g., "usb0", "usb1")
+// maxCount: maximum number of channels to store
+int CAN_EnumDevices(char (*channelNames)[16], int maxCount);
 
 // Firmware operations
 bool CAN_FirmwareUpgrade(CANManager* mgr, const char* fileName, bool testMode);
