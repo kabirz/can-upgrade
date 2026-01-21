@@ -1,0 +1,4 @@
+pydantic-settings==2.12.0
+python-can==4.6.1
+rich-argparse==1.7.2
+tqdm==4.67.1
