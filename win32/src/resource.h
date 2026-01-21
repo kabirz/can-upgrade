@@ -1,6 +1,9 @@
 #ifndef RESOURCE_H
 #define RESOURCE_H
 
+// Dialog resources
+#define IDD_MAIN                        100
+
 // Icon resources
 #define IDI_APPICON                     101
 #define IDI_APPICON_SMALL               102
@@ -32,7 +35,14 @@
 // Timer IDs
 #define ID_TIMER_RESPONSE               401
 
+// Menu resource
+#define IDR_MAINMENU                    103
+
 // Menu/Command IDs
+#define IDM_FILE_OPEN                   501
+#define IDM_FILE_EXIT                   502
+#define IDM_EDIT_CLEARLOG               503
+#define IDM_HELP_ABOUT                  504
 #define IDM_FLASH_COMPLETE              500
 
 // Application constants

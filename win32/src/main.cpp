@@ -7,43 +7,24 @@
 #pragma comment(lib, "comctl32.lib")
 
 // 全局变量
-HINSTANCE g_hInstance;
-CANManager* g_canManager;
-HWND g_hMainWindow;
-HWND g_hStatusLog;
-HWND g_hProgressBar;
-HWND g_hConnectButton;
-HWND g_hFlashButton;
-HWND g_hGetVersionButton;
-HWND g_hRebootButton;
-HWND g_hBrowseButton;
-HWND g_hFirmwareEdit;
-HWND g_hChannelCombo;
-HWND g_hBaudRateCombo;
-HWND g_hTestModeCheck;
-HWND g_hVersionLabel;
-HWND g_hClearLogButton;
-UINT g_dpi = 96;  // 系统DPI，用于控件缩放
-HFONT g_hAppFont = NULL;  // 全局字体
+CANManager* g_canManager = NULL;
+HWND g_hDialog = NULL;
 
 static const int BAUD_RATES[] = {10000, 20000, 50000, 80000, 125000, 250000, 500000, 1000000};
 
-// DPI 缩放辅助函数（需在 WndProc 之前定义）
-int ScaleValue(int value, UINT dpi) {
-    return MulDiv(value, dpi, 96);
-}
-
 // 日志函数
 void AppendLog(const wchar_t* msg) {
-    int len = GetWindowTextLength(g_hStatusLog);
-    SendMessage(g_hStatusLog, EM_SETSEL, len, len);
-    SendMessage(g_hStatusLog, EM_REPLACESEL, FALSE, (LPARAM)msg);
-    SendMessage(g_hStatusLog, EM_REPLACESEL, FALSE, (LPARAM)L"\r\n");
-    SendMessage(g_hStatusLog, EM_SETSEL, -1, -1);
+    HWND hLog = GetDlgItem(g_hDialog, IDC_EDIT_LOG);
+    int len = GetWindowTextLength(hLog);
+    SendMessage(hLog, EM_SETSEL, len, len);
+    SendMessage(hLog, EM_REPLACESEL, FALSE, (LPARAM)msg);
+    SendMessage(hLog, EM_REPLACESEL, FALSE, (LPARAM)L"\r\n");
+    SendMessage(hLog, EM_SETSEL, -1, -1);
 }
 
 void ClearLog() {
-    SetWindowTextW(g_hStatusLog, L"");
+    HWND hLog = GetDlgItem(g_hDialog, IDC_EDIT_LOG);
+    SetWindowTextW(hLog, L"");
 }
 
 // CAN 回调
@@ -60,25 +41,28 @@ void OnErrorCallback(const char* msg, void*) {
 }
 
 void OnProgressCallback(int pct, void*) {
-    SendMessage(g_hProgressBar, PBM_SETPOS, pct, 0);
+    HWND hProgress = GetDlgItem(g_hDialog, IDC_PROGRESS);
+    SendMessage(hProgress, PBM_SETPOS, pct, 0);
 }
 
 void OnVersionCallback(const char* ver, void*) {
+    HWND hVersion = GetDlgItem(g_hDialog, IDC_LABEL_VERSION);
     wchar_t wver[64];
     MultiByteToWideChar(CP_UTF8, 0, ver, -1, wver, 64);
-    SetWindowTextW(g_hVersionLabel, wver);
+    SetWindowTextW(hVersion, wver);
 }
 
 void OnConnectedCallback(bool connected, void*) {
-    EnableWindow(g_hFlashButton, connected);
-    EnableWindow(g_hGetVersionButton, connected);
-    EnableWindow(g_hRebootButton, connected);
-    EnableWindow(g_hChannelCombo, !connected);
-    EnableWindow(g_hBaudRateCombo, !connected);
-    SetWindowTextW(g_hConnectButton, connected ? L"断开连接" : L"连接");
+    EnableWindow(GetDlgItem(g_hDialog, IDC_BUTTON_FLASH), connected);
+    EnableWindow(GetDlgItem(g_hDialog, IDC_BUTTON_GETVERSION), connected);
+    EnableWindow(GetDlgItem(g_hDialog, IDC_BUTTON_REBOOT), connected);
+    EnableWindow(GetDlgItem(g_hDialog, IDC_COMBO_CHANNEL), !connected);
+    EnableWindow(GetDlgItem(g_hDialog, IDC_COMBO_BAUDRATE), !connected);
+    SetWindowTextW(GetDlgItem(g_hDialog, IDC_BUTTON_CONNECT), connected ? L"断开连接" : L"连接");
     if (!connected) {
-        SendMessage(g_hProgressBar, PBM_SETPOS, 0, 0);
-        SetWindowTextW(g_hVersionLabel, L"未连接");
+        HWND hProgress = GetDlgItem(g_hDialog, IDC_PROGRESS);
+        SendMessage(hProgress, PBM_SETPOS, 0, 0);
+        SetWindowTextW(GetDlgItem(g_hDialog, IDC_LABEL_VERSION), L"未连接");
     }
 }
 
@@ -92,21 +76,59 @@ DWORD WINAPI FlashThread(LPVOID param) {
     FlashParams* p = (FlashParams*)param;
     bool success = CAN_FirmwareUpgrade(g_canManager, p->fileName, p->testMode);
     delete p;
-    PostMessage(g_hMainWindow, WM_COMMAND, IDM_FLASH_COMPLETE, success ? 1 : 0);
+    PostMessage(g_hDialog, WM_COMMAND, IDM_FLASH_COMPLETE, success ? 1 : 0);
     return 0;
 }
 
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+INT_PTR CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
-        case WM_CTLCOLORSTATIC: {
-            HDC hdcStatic = (HDC)wParam;
-            SetTextColor(hdcStatic, RGB(0, 0, 0));
-            SetBkMode(hdcStatic, TRANSPARENT);
-            return (LRESULT)GetStockObject(NULL_BRUSH);
+        case WM_INITDIALOG: {
+            g_hDialog = hwnd;
+
+            // 设置图标
+            HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_APPICON));
+            SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+            SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+
+            // 初始化设备下拉框
+            HWND hChannel = GetDlgItem(hwnd, IDC_COMBO_CHANNEL);
+            SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)L"USB0");
+            SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)L"USB1");
+            SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)L"USB2");
+            SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)L"USB3");
+            SendMessage(hChannel, CB_SETCURSEL, 0, 0);
+
+            // 初始化波特率下拉框
+            HWND hBaudRate = GetDlgItem(hwnd, IDC_COMBO_BAUDRATE);
+            const wchar_t* baudNames[] = {L"10K", L"20K", L"50K", L"83K", L"125K", L"250K", L"500K", L"1000K"};
+            for (int i = 0; i < 8; i++) {
+                SendMessage(hBaudRate, CB_ADDSTRING, 0, (LPARAM)baudNames[i]);
+            }
+            SendMessage(hBaudRate, CB_SETCURSEL, 5, 0);  // 默认 250K
+
+            // 初始化进度条
+            HWND hProgress = GetDlgItem(hwnd, IDC_PROGRESS);
+            SendMessage(hProgress, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
+            SendMessage(hProgress, PBM_SETPOS, 0, 0);
+
+            // 初始化按钮状态
+            EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_FLASH), FALSE);
+            EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_GETVERSION), FALSE);
+            EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REBOOT), FALSE);
+
+            AppendLog(L"CAN固件升级工具已启动");
+            AppendLog(L"请选择CAN设备和波特率，然后点击连接");
+            return TRUE;
         }
 
         case WM_COMMAND: {
             switch (LOWORD(wParam)) {
+                case IDCANCEL:
+                case IDOK:
+                    DestroyWindow(hwnd);
+                    PostQuitMessage(0);
+                    return TRUE;
+
                 case IDC_BUTTON_CONNECT: {
                     if (!g_canManager) {
                         g_canManager = CAN_Create();
@@ -120,9 +142,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     if (CAN_IsConnected(g_canManager)) {
                         CAN_Disconnect(g_canManager);
                     } else {
+                        HWND hChannel = GetDlgItem(hwnd, IDC_COMBO_CHANNEL);
+                        HWND hBaudRate = GetDlgItem(hwnd, IDC_COMBO_BAUDRATE);
                         wchar_t channel[32];
-                        GetWindowTextW(g_hChannelCombo, channel, 32);
-                        int baudRate = BAUD_RATES[SendMessage(g_hBaudRateCombo, CB_GETCURSEL, 0, 0)];
+                        GetWindowTextW(hChannel, channel, 32);
+                        int baudRate = BAUD_RATES[SendMessageW(hBaudRate, CB_GETCURSEL, 0, 0)];
 
                         // 固定使用 PCAN 接口
                         const char* ifaceA = "PCAN";
@@ -136,9 +160,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                             AppendLog(msg);
                         }
                     }
-                    break;
+                    return TRUE;
                 }
 
+                case IDM_FILE_OPEN:
                 case IDC_BUTTON_BROWSE: {
                     wchar_t fileName[MAX_PATH] = L"";
                     OPENFILENAMEW ofn = {sizeof(OPENFILENAMEW)};
@@ -149,53 +174,55 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     ofn.Flags = OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
                     ofn.lpstrTitle = L"选择固件文件";
                     if (GetOpenFileNameW(&ofn)) {
-                        SetWindowTextW(g_hFirmwareEdit, fileName);
+                        SetWindowTextW(GetDlgItem(hwnd, IDC_EDIT_FIRMWARE), fileName);
                     }
-                    break;
+                    return TRUE;
                 }
 
                 case IDC_BUTTON_FLASH: {
                     if (!g_canManager || !CAN_IsConnected(g_canManager)) {
                         AppendLog(L"错误: CAN未连接");
-                        break;
+                        return TRUE;
                     }
+                    HWND hFirmware = GetDlgItem(hwnd, IDC_EDIT_FIRMWARE);
+                    HWND hTestMode = GetDlgItem(hwnd, IDC_CHECK_TESTMODE);
                     wchar_t fileName[MAX_PATH];
-                    GetWindowTextW(g_hFirmwareEdit, fileName, MAX_PATH);
+                    GetWindowTextW(hFirmware, fileName, MAX_PATH);
                     if (fileName[0] == 0) {
                         AppendLog(L"错误: 请先选择固件文件");
-                        break;
+                        return TRUE;
                     }
                     char fileNameA[MAX_PATH];
                     WideCharToMultiByte(CP_ACP, 0, fileName, -1, fileNameA, MAX_PATH, NULL, NULL);
-                    bool testMode = SendMessage(g_hTestModeCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
+                    bool testMode = SendMessage(hTestMode, BM_GETCHECK, 0, 0) == BST_CHECKED;
 
                     AppendLog(L"开始升级固件...");
                     if (testMode) AppendLog(L"模式: 测试模式");
-                    EnableWindow(g_hFlashButton, FALSE);
+                    EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_FLASH), FALSE);
 
                     FlashParams* p = new FlashParams;
                     strcpy(p->fileName, fileNameA);
                     p->testMode = testMode;
                     CreateThread(NULL, 0, FlashThread, p, 0, NULL);
-                    break;
+                    return TRUE;
                 }
 
                 case IDC_BUTTON_GETVERSION: {
                     if (!g_canManager || !CAN_IsConnected(g_canManager)) {
                         AppendLog(L"错误: CAN未连接");
-                        break;
+                        return TRUE;
                     }
                     AppendLog(L"正在查询固件版本...");
                     if (!CAN_FirmwareVersion(g_canManager)) {
                         AppendLog(L"查询固件版本失败");
                     }
-                    break;
+                    return TRUE;
                 }
 
                 case IDC_BUTTON_REBOOT: {
                     if (!g_canManager || !CAN_IsConnected(g_canManager)) {
                         AppendLog(L"错误: CAN未连接");
-                        break;
+                        return TRUE;
                     }
                     if (MessageBoxW(hwnd, L"确认要重启板卡吗?", L"确认", MB_YESNO | MB_ICONQUESTION) == IDYES) {
                         if (CAN_BoardReboot(g_canManager)) {
@@ -204,7 +231,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                             AppendLog(L"发送重启命令失败");
                         }
                     }
-                    break;
+                    return TRUE;
                 }
 
                 case IDC_BUTTON_REFRESH: {
@@ -225,199 +252,66 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     if (!found) {
                         AppendLog(L"未发现PCAN设备，请检查连接");
                     }
-                    break;
+                    return TRUE;
                 }
 
                 case IDM_FLASH_COMPLETE:
-                    EnableWindow(g_hFlashButton, TRUE);
+                    EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_FLASH), TRUE);
                     AppendLog(wParam ? L"固件升级成功!" : L"固件升级失败");
-                    break;
+                    return TRUE;
 
+                case IDM_FILE_EXIT:
+                    DestroyWindow(hwnd);
+                    PostQuitMessage(0);
+                    return TRUE;
+
+                case IDM_EDIT_CLEARLOG:
                 case IDC_BUTTON_CLEAR_LOG: {
-                    ShowWindow(g_hStatusLog, SW_HIDE);
-                    SetWindowTextW(g_hStatusLog, L"");
-                    RedrawWindow(g_hStatusLog, NULL, NULL, RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW);
-                    ShowWindow(g_hStatusLog, SW_SHOW);
-                    break;
+                    HWND hLog = GetDlgItem(hwnd, IDC_EDIT_LOG);
+                    ShowWindow(hLog, SW_HIDE);
+                    SetWindowTextW(hLog, L"");
+                    RedrawWindow(hLog, NULL, NULL, RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW);
+                    ShowWindow(hLog, SW_SHOW);
+                    return TRUE;
                 }
+
+                case IDM_HELP_ABOUT:
+                    MessageBoxW(hwnd,
+                        L"CAN固件升级工具 v1.0\n\n"
+                        L"用于通过 PCAN 接口升级板卡固件\n\n"
+                        L"功能特性:\n"
+                        L"• 支持多种波特率\n"
+                        L"• 固件升级与测试模式\n"
+                        L"• 版本查询与板卡重启",
+                        L"关于",
+                        MB_OK | MB_ICONINFORMATION);
+                    return TRUE;
             }
-            return 0;
+            break;
         }
+
+        case WM_CLOSE:
+            DestroyWindow(hwnd);
+            PostQuitMessage(0);
+            return TRUE;
 
         case WM_DESTROY:
             if (g_canManager) CAN_Destroy(g_canManager);
-            PostQuitMessage(0);
-            return 0;
-
-        case WM_SIZE:
-            if (g_hStatusLog) {
-                RECT rc;
-                GetClientRect(hwnd, &rc);
-                int x = ScaleValue(20, g_dpi);
-                int y = ScaleValue(390, g_dpi);
-                int w = rc.right - ScaleValue(40, g_dpi);
-                int h = rc.bottom - ScaleValue(405, g_dpi);
-                SetWindowPos(g_hStatusLog, NULL, x, y, w, h, SWP_NOZORDER);
-            }
-            return 0;
+            g_canManager = NULL;
+            return TRUE;
     }
-    return DefWindowProc(hwnd, msg, wParam, lParam);
+    return FALSE;
 }
 
-// DPI 缩放宏（在 WinMain 中使用）
-#define SCALE(v) ScaleValue(v, g_dpi)
-
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
-    // 启用 DPI 感知，解决高 DPI 下字体模糊问题
+    // 启用 DPI 感知
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-    g_hInstance = hInstance;
     INITCOMMONCONTROLSEX icc = {sizeof(INITCOMMONCONTROLSEX), ICC_PROGRESS_CLASS};
     InitCommonControlsEx(&icc);
 
-    WNDCLASSEXW wc = {sizeof(WNDCLASSEXW)};
-    wc.lpfnWndProc = WndProc;
-    wc.hInstance = hInstance;
-    wc.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APPICON));
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.lpszClassName = L"CANFirmwareApp";
-    RegisterClassExW(&wc);
+    // 创建模式对话框
+    DialogBox(hInstance, MAKEINTRESOURCE(IDD_MAIN), NULL, DlgProc);
 
-    // 获取系统 DPI（使用默认显示器）
-    HDC hdc = GetDC(NULL);
-    g_dpi = GetDeviceCaps(hdc, LOGPIXELSX);
-    ReleaseDC(NULL, hdc);
-
-    // 根据 DPI 缩放窗口尺寸
-    int scaledWidth = ScaleValue(WINDOW_WIDTH, g_dpi);
-    int scaledHeight = ScaleValue(WINDOW_HEIGHT, g_dpi);
-
-    g_hMainWindow = CreateWindowExW(0, L"CANFirmwareApp", L"CAN固件升级工具",
-        WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX,
-        CW_USEDEFAULT, CW_USEDEFAULT, scaledWidth, scaledHeight,
-        NULL, NULL, hInstance, NULL);
-
-    // 连接设置
-    CreateWindowExW(0, L"BUTTON", L"连接设置", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-        SCALE(10), SCALE(10), SCALE(700), SCALE(60), g_hMainWindow, (HMENU)ID_GROUP_CONNECTION, hInstance, NULL);
-
-    CreateWindowExW(0, L"STATIC", L"设备:", WS_CHILD | WS_VISIBLE | SS_LEFT,
-        SCALE(30), SCALE(30), SCALE(50), SCALE(20), g_hMainWindow, NULL, hInstance, NULL);
-    g_hChannelCombo = CreateWindowExW(0, L"COMBOBOX", NULL,
-        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-        SCALE(80), SCALE(28), SCALE(100), 200, g_hMainWindow, (HMENU)IDC_COMBO_CHANNEL, hInstance, NULL);
-    SendMessageW(g_hChannelCombo, CB_ADDSTRING, 0, (LPARAM)L"USB0");
-    SendMessageW(g_hChannelCombo, CB_ADDSTRING, 0, (LPARAM)L"USB1");
-    SendMessageW(g_hChannelCombo, CB_ADDSTRING, 0, (LPARAM)L"USB2");
-    SendMessageW(g_hChannelCombo, CB_ADDSTRING, 0, (LPARAM)L"USB3");
-    SendMessageW(g_hChannelCombo, CB_SETCURSEL, 0, 0);
-
-    CreateWindowExW(0, L"STATIC", L"波特率:", WS_CHILD | WS_VISIBLE | SS_LEFT,
-        SCALE(200), SCALE(30), SCALE(60), SCALE(20), g_hMainWindow, NULL, hInstance, NULL);
-    g_hBaudRateCombo = CreateWindowExW(0, L"COMBOBOX", NULL,
-        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
-        SCALE(265), SCALE(28), SCALE(100), 200, g_hMainWindow, (HMENU)IDC_COMBO_BAUDRATE, hInstance, NULL);
-    const wchar_t* baudNames[] = {L"10K", L"20K", L"50K", L"83K", L"125K", L"250K", L"500K", L"1000K"};
-    for (int i = 0; i < 8; i++) SendMessageW(g_hBaudRateCombo, CB_ADDSTRING, 0, (LPARAM)baudNames[i]);
-    SendMessageW(g_hBaudRateCombo, CB_SETCURSEL, 5, 0);
-
-    CreateWindowExW(0, L"BUTTON", L"刷新设备列表",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-        SCALE(385), SCALE(25), SCALE(100), SCALE(30), g_hMainWindow, (HMENU)IDC_BUTTON_REFRESH, hInstance, NULL);
-    g_hConnectButton = CreateWindowExW(0, L"BUTTON", L"连接",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-        SCALE(520), SCALE(25), SCALE(80), SCALE(30), g_hMainWindow, (HMENU)IDC_BUTTON_CONNECT, hInstance, NULL);
-
-    // 固件升级
-    CreateWindowExW(0, L"BUTTON", L"固件升级", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-        SCALE(10), SCALE(80), SCALE(700), SCALE(150), g_hMainWindow, (HMENU)ID_GROUP_FIRMWARE, hInstance, NULL);
-    CreateWindowExW(0, L"STATIC", L"固件文件:", WS_CHILD | WS_VISIBLE | SS_LEFT,
-        SCALE(30), SCALE(110), SCALE(85), SCALE(20), g_hMainWindow, NULL, hInstance, NULL);
-    g_hFirmwareEdit = CreateWindowExW(0, L"EDIT", NULL,
-        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_BORDER | ES_READONLY,
-        SCALE(120), SCALE(107), SCALE(435), SCALE(25), g_hMainWindow, (HMENU)IDC_EDIT_FIRMWARE, hInstance, NULL);
-    g_hBrowseButton = CreateWindowExW(0, L"BUTTON", L"浏览...",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-        SCALE(565), SCALE(105), SCALE(80), SCALE(28), g_hMainWindow, (HMENU)IDC_BUTTON_BROWSE, hInstance, NULL);
-    g_hTestModeCheck = CreateWindowExW(0, L"BUTTON", L"测试模式(第二次重启后恢复原固件)",
-        WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP,
-        SCALE(30), SCALE(145), SCALE(300), SCALE(20), g_hMainWindow, (HMENU)IDC_CHECK_TESTMODE, hInstance, NULL);
-    CreateWindowExW(0, L"STATIC", L"进度:", WS_CHILD | WS_VISIBLE | SS_LEFT,
-        SCALE(30), SCALE(175), SCALE(50), SCALE(20), g_hMainWindow, NULL, hInstance, NULL);
-    g_hProgressBar = CreateWindowExW(0, PROGRESS_CLASSW, NULL,
-        WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
-        SCALE(80), SCALE(175), SCALE(400), SCALE(20), g_hMainWindow, (HMENU)IDC_PROGRESS, hInstance, NULL);
-    SendMessage(g_hProgressBar, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
-    g_hFlashButton = CreateWindowExW(0, L"BUTTON", L"开始升级",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-        SCALE(520), SCALE(160), SCALE(100), SCALE(40), g_hMainWindow, (HMENU)IDC_BUTTON_FLASH, hInstance, NULL);
-    EnableWindow(g_hFlashButton, FALSE);
-
-    // 板卡命令
-    CreateWindowExW(0, L"BUTTON", L"板卡命令", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-        SCALE(10), SCALE(240), SCALE(700), SCALE(100), g_hMainWindow, (HMENU)ID_GROUP_COMMANDS, hInstance, NULL);
-    CreateWindowExW(0, L"STATIC", L"固件版本:", WS_CHILD | WS_VISIBLE | SS_LEFT,
-        SCALE(30), SCALE(270), SCALE(80), SCALE(20), g_hMainWindow, NULL, hInstance, NULL);
-    g_hVersionLabel = CreateWindowExW(0, L"STATIC", L"未连接", WS_CHILD | WS_VISIBLE | SS_LEFT,
-        SCALE(120), SCALE(270), SCALE(150), SCALE(20), g_hMainWindow, NULL, hInstance, NULL);
-    g_hGetVersionButton = CreateWindowExW(0, L"BUTTON", L"获取版本",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-        SCALE(300), SCALE(260), SCALE(100), SCALE(35), g_hMainWindow, (HMENU)IDC_BUTTON_GETVERSION, hInstance, NULL);
-    g_hRebootButton = CreateWindowExW(0, L"BUTTON", L"重启板卡",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-        SCALE(420), SCALE(260), SCALE(100), SCALE(35), g_hMainWindow, (HMENU)IDC_BUTTON_REBOOT, hInstance, NULL);
-    EnableWindow(g_hGetVersionButton, FALSE);
-    EnableWindow(g_hRebootButton, FALSE);
-
-    // 日志
-    CreateWindowExW(0, L"BUTTON", L"状态日志", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-        SCALE(10), SCALE(375), SCALE(700), SCALE(210), g_hMainWindow, (HMENU)ID_GROUP_LOG, hInstance, NULL);
-    g_hStatusLog = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", NULL,
-        WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
-        SCALE(20), SCALE(390), SCALE(530), SCALE(180), g_hMainWindow, (HMENU)IDC_EDIT_LOG, hInstance, NULL);
-    // 清空按钮放在日志框右下角
-    g_hClearLogButton = CreateWindowExW(0, L"BUTTON", L"清空日志",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-        SCALE(560), SCALE(540), SCALE(90), SCALE(28), g_hMainWindow, (HMENU)IDC_BUTTON_CLEAR_LOG, hInstance, NULL);
-
-    // 创建全局字体（用于所有控件）
-    int appFontSize = ScaleValue(14, g_dpi);
-    g_hAppFont = CreateFontW(-appFontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei");
-
-    // 日志框字体（更小）
-    int logFontSize = ScaleValue(11, g_dpi);
-    HFONT hLogFont = CreateFontW(-logFontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei");
-    SendMessage(g_hStatusLog, WM_SETFONT, (WPARAM)hLogFont, TRUE);
-
-    // 为所有子窗口设置全局字体
-    EnumChildWindows(g_hMainWindow, [](HWND hwnd, LPARAM lParam) -> BOOL {
-        if (hwnd != g_hStatusLog) {  // 跳过日志框
-            SendMessage(hwnd, WM_SETFONT, (WPARAM)g_hAppFont, TRUE);
-        }
-        return TRUE;
-    }, 0);
-
-    // 确保清空按钮在最前面
-    SetWindowPos(g_hClearLogButton, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-
-    AppendLog(L"CAN固件升级工具已启动");
-    AppendLog(L"请选择CAN设备和波特率，然后点击连接");
-
-    ShowWindow(g_hMainWindow, nCmdShow);
-    UpdateWindow(g_hMainWindow);
-
-    MSG msg;
-    while (GetMessage(&msg, NULL, 0, 0)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-
-    // 清理字体资源
-    if (g_hAppFont) DeleteObject(g_hAppFont);
     return 0;
 }
