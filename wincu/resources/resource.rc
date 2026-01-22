@@ -1,0 +1,73 @@
+#include <resource.h>
+#include <afxres.h>
+#include <windows.h>
+
+#pragma code_page(65001)
+
+// 应用程序图标（IDR_MAINFRAME 是标准 ID）
+IDI_APPICON ICON "icon.ico"
+
+// 窗口图标（可选，通常与主图标相同）
+IDI_APPICON_SMALL ICON "icon.ico"
+
+// 主菜单
+IDR_MAINMENU MENU
+BEGIN
+    POPUP "文件(&F)"
+    BEGIN
+        MENUITEM "打开(&O)",                IDM_FILE_OPEN
+        MENUITEM "退出(&X)",                IDM_FILE_EXIT
+    END
+    POPUP "编辑(&E)"
+    BEGIN
+        MENUITEM "清空日志(&L)",            IDM_EDIT_CLEARLOG
+    END
+    POPUP "帮助(&H)"
+    BEGIN
+        MENUITEM "关于(&A)",                IDM_HELP_ABOUT
+    END
+END
+
+// 主对话框
+IDD_MAIN DIALOGEX 200, 50, 470, 370
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "CAN固件升级工具"
+FONT 9, "Microsoft YaHei", 400, 0, 0x0
+MENU IDR_MAINMENU
+BEGIN
+    // 连接设置组
+    GROUPBOX        "连接设置", IDC_STATIC, 7, 7, 456, 42 
+    LTEXT           "设备:", IDC_STATIC, 20, 28, 35, 12, SS_LEFT
+    COMBOBOX        IDC_COMBO_CHANNEL, 60, 25, 80, 60, CBS_DROPDOWNLIST | WS_VSCROLL
+    LTEXT           "波特率:", IDC_STATIC, 155, 28, 40, 12, SS_LEFT
+    COMBOBOX        IDC_COMBO_BAUDRATE, 200, 25, 80, 60, CBS_DROPDOWNLIST | WS_VSCROLL
+    PUSHBUTTON      "刷新设备列表", IDC_BUTTON_REFRESH, 295, 23, 70, 18, WS_TABSTOP
+    PUSHBUTTON      "连接", IDC_BUTTON_CONNECT, 380, 23, 60, 18, WS_TABSTOP
+
+    // 固件升级组
+    GROUPBOX        "固件升级", IDC_STATIC, 7, 57, 456, 100
+    LTEXT           "固件文件:", IDC_STATIC, 20, 80, 50, 12, SS_LEFT
+    EDITTEXT        IDC_EDIT_FIRMWARE, 75, 78, 300, 14, ES_AUTOHSCROLL | ES_READONLY
+    PUSHBUTTON      "浏览...", IDC_BUTTON_BROWSE, 380, 75, 60, 18, WS_TABSTOP
+    CONTROL         "测试模式(第二次重启后恢复原固件)", IDC_CHECK_TESTMODE,
+                    "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 20, 107, 220, 12
+    LTEXT           "进度:", IDC_STATIC, 20, 133, 35, 12, SS_LEFT
+    CONTROL         "", IDC_PROGRESS, "msctls_progress32", PBS_SMOOTH,
+                    60, 131, 280, 12
+    PUSHBUTTON      "开始升级", IDC_BUTTON_FLASH, 380, 130, 60, 18, WS_TABSTOP
+
+    // 板卡命令组
+    GROUPBOX        "板卡命令", IDC_STATIC, 7, 165, 456, 45
+    LTEXT           "固件版本:", IDC_STATIC, 20, 185, 60, 12, SS_LEFT
+    LTEXT           "未连接", IDC_LABEL_VERSION, 85, 185, 80, 12, SS_LEFT
+    PUSHBUTTON      "获取版本", IDC_BUTTON_GETVERSION, 200, 177, 70, 20, WS_TABSTOP
+    PUSHBUTTON      "重启板卡", IDC_BUTTON_REBOOT, 290, 177, 70, 20, WS_TABSTOP
+
+    // 日志组
+    GROUPBOX        "状态日志", IDC_STATIC, 7, 220, 456, 140
+    EDITTEXT        IDC_EDIT_LOG, 15, 235, 365, 120, ES_MULTILINE |
+                    ES_AUTOVSCROLL | WS_VSCROLL | ES_READONLY
+    PUSHBUTTON      "清空日志", IDC_BUTTON_CLEAR_LOG, 395, 330, 55, 18, WS_TABSTOP
+END
+
