@@ -95,7 +95,7 @@ void getDeviceList(HWND hwnd) {
 LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_INITDIALOG: {
-           // 设置图标
+            // 设置图标
             HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_APPICON));
             SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
             SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
@@ -190,7 +190,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_GETVERSION), FALSE);
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REBOOT), FALSE);
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REFRESH), TRUE);
-                        SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), L"未连接");
+                        SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), L"固件版本: 未连接");
                         EnableWindow(hChannel, TRUE);
                         EnableWindow(hBaudRate, TRUE);
                         return TRUE;
@@ -224,7 +224,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     uint32_t version = CanManager::getInstance().getFirmwareVersion();
                     if (version) {
                         wchar_t verMsg[32];
-                        wsprintfW(verMsg, L"v%u.%u.%u", (version >> 24) & 0xFF,
+                        wsprintfW(verMsg, L"固件版本: v%u.%u.%u", (version >> 24) & 0xFF,
                               (version >> 16) & 0xFF, (version >> 8) & 0xFF);
                         SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), verMsg);
                     }

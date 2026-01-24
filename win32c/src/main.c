@@ -218,7 +218,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_GETVERSION), FALSE);
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REBOOT), FALSE);
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REFRESH), TRUE);
-                        SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), L"未连接");
+                        SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), L"固件版本: 未连接");
                         EnableWindow(hChannel, TRUE);
                         EnableWindow(hBaudRate, TRUE);
                         UpdateFlashButtonState(hwnd);
@@ -256,7 +256,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     uint32_t version = CanManager_GetFirmwareVersion(g_canManager);
                     if (version) {
                         wchar_t verMsg[32];
-                        wsprintfW(verMsg, L"v%u.%u.%u", (version >> 24) & 0xFF,
+                        wsprintfW(verMsg, L"固件版本: v%u.%u.%u", (version >> 24) & 0xFF,
                               (version >> 16) & 0xFF, (version >> 8) & 0xFF);
                         SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), verMsg);
                     }
