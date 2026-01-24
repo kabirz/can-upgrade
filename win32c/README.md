@@ -238,7 +238,7 @@ build/can-upgrade.exe
 
 ## 与 wincpp 项目对比
 
-| 特性 | wincpp (C++, MSVC) | winc (C++, MinGW) | win32c (C, MinGW) | win32c (C, MSVC) |
+| 特性 | wincpp (C++, MSVC) | wincpp (C++, MinGW) | win32c (C, MinGW) | win32c (C, MSVC) |
 |------|-------------------|-------------------|-------------------|-------------------|
 | 语言 | C++ | C++ | C | C |
 | exe 大小 | ~31KB | ~121KB | ~55KB | ~29KB |
