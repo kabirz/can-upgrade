@@ -158,7 +158,7 @@ build/can-upgrade.exe
 |--------|---------------|------|
 | MSVC (VS2022) | ~29 KB | Windows 原生编译，体积最小 |
 | MinGW GCC | ~55 KB | Linux 交叉编译 |
-| C++ 版本 (wincu) | MSVC: ~31 KB / MinGW: ~121 KB | 相同功能的 C++ 实现 |
+| C++ 版本 (wincpp) | MSVC: ~31 KB / MinGW: ~121 KB | 相同功能的 C++ 实现 |
 
 ### MSVC 版本详细分析
 
@@ -236,9 +236,9 @@ build/can-upgrade.exe
 | 4 | FW_CODE_FLASH_ERROR | Flash 错误 |
 | 5 | FW_CODE_TRANFER_ERROR | 传输错误 |
 
-## 与 wincu 项目对比
+## 与 wincpp 项目对比
 
-| 特性 | wincu (C++, MSVC) | wincu (C++, MinGW) | win32c (C, MinGW) | win32c (C, MSVC) |
+| 特性 | wincpp (C++, MSVC) | winc (C++, MinGW) | win32c (C, MinGW) | win32c (C, MSVC) |
 |------|-------------------|-------------------|-------------------|-------------------|
 | 语言 | C++ | C++ | C | C |
 | exe 大小 | ~31KB | ~121KB | ~55KB | ~29KB |

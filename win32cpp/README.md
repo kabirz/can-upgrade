@@ -28,7 +28,7 @@
 ## 目录结构
 
 ```
-wincu/
+wincpp/
 ├── include/            # 头文件
 │   ├── can_manager.h   # CAN 管理器接口
 │   ├── resource.h      # 资源 ID 定义
@@ -227,7 +227,7 @@ build/can-upgrade.exe
 
 ## 与 win32c 项目对比
 
-| 特性 | wincu (C++) | win32c (C, MSVC) |
+| 特性 | wincpp (C++) | win32c (C, MSVC) |
 |------|-------------|-------------------|
 | 语言 | C++20 | C |
 | exe 大小 | ~31 KB | ~29 KB |
