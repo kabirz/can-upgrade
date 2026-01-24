@@ -30,6 +30,7 @@
 #define IDC_BUTTON_REBOOT               312
 #define IDC_EDIT_LOG                    313
 #define IDC_BUTTON_CLEAR_LOG            314
+#define IDC_LABEL_PERCENT               315
 
 // Timer IDs
 #define ID_TIMER_RESPONSE               401

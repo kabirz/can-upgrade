@@ -6,6 +6,7 @@
 #include <PCANBasic.h>
 
 #define MAX_DEVICES 16
+#define VIRTUAL_CAN_CHANNEL  ((TPCANHandle)0xFFFF)
 
 #ifdef __cplusplus
 extern "C" {

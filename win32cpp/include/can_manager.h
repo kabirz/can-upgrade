@@ -6,6 +6,7 @@
 #include <PCANBasic.h>
 
 #define MAX_DEVICES 16
+#define VIRTUAL_CAN_CHANNEL  ((TPCANHandle)0xFFFF)
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,7 +54,7 @@ public:
     void setProgressCallback(progressCallback progress_call);
     uint32_t getFirmwareVersion(void);
     bool boardReboot(void);
-    bool firmwareUpgrade(const char* fileName, bool testMode);
+    bool firmwareUpgrade(const wchar_t* fileName, bool testMode);
     int detectDevice(TPCANHandle* channels, int maxCount);
 
 private:
@@ -65,6 +66,8 @@ private:
     }
     void appendLog(const char *msg);
     bool CAN_WaitForResponse(uint32_t* code, uint32_t* param, int timeoutMs);
+    bool virtualCAN_FirmwareUpgrade(const wchar_t* fileName);
+    bool pcan_FirmwareUpgrade(const wchar_t* fileName, bool testMode);
 
     CRITICAL_SECTION m_criticalSection;
     TPCANHandle m_channel;

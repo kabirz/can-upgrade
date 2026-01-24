@@ -53,7 +53,8 @@ BEGIN
                     "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 20, 70, 230, 12
     LTEXT           "进度:", IDC_STATIC, 20, 90, 35, 12, SS_LEFT
     CONTROL         "", IDC_PROGRESS, "msctls_progress32", PBS_SMOOTH,
-                    55, 90, 250, 8
+                    55, 90, 247, 8
+    LTEXT           "0%", IDC_LABEL_PERCENT, 304, 90, 18, 12, SS_LEFT
     PUSHBUTTON      "开始升级", IDC_BUTTON_FLASH, 325, 90, 45, 14, WS_TABSTOP
 
     // 日志和板卡命令组

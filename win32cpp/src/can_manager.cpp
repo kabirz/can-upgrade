@@ -30,6 +30,14 @@ bool CanManager::connect(TPCANHandle channel, TPCANBaudrate baudrate) {
         return true;
     }
 
+    // 检查是否为虚拟 CAN
+    if (channel == VIRTUAL_CAN_CHANNEL) {
+        m_channel = channel;
+        LeaveCriticalSection(&m_criticalSection);
+        appendLog("虚拟 CAN 连接成功 (测试模式)");
+        return true;
+    }
+
     TPCANStatus status = CAN_Initialize(channel, baudrate, 0, 0, 0);
     if (status != PCAN_ERROR_OK) {
         LeaveCriticalSection(&m_criticalSection);
@@ -48,9 +56,13 @@ bool CanManager::connect(TPCANHandle channel, TPCANBaudrate baudrate) {
 void CanManager::disconnect(void) {
     EnterCriticalSection(&m_criticalSection);
 
-    char logMsg[32];
-    sprintf(logMsg, "CAN(id=%xh) 连接已断开", m_channel);
-    CAN_Uninitialize(m_channel);
+    char logMsg[64];
+    if (m_channel == VIRTUAL_CAN_CHANNEL) {
+        sprintf(logMsg, "虚拟 CAN 连接已断开");
+    } else {
+        sprintf(logMsg, "CAN(id=%xh) 连接已断开", m_channel);
+        CAN_Uninitialize(m_channel);
+    }
     m_channel = PCAN_NONEBUS;
     LeaveCriticalSection(&m_criticalSection);
     appendLog(logMsg);
@@ -86,6 +98,13 @@ uint32_t CanManager::getFirmwareVersion(void) {
         LeaveCriticalSection(&m_criticalSection);
         appendLog("CAN已断开连接, 请重新连接");
         return 0;
+    }
+
+    // 虚拟 CAN 模式：返回模拟版本
+    if (m_channel == VIRTUAL_CAN_CHANNEL) {
+        appendLog("固件版本: v1.0.0 (虚拟 CAN)");
+        LeaveCriticalSection(&m_criticalSection);
+        return 0x01000000;  // v1.0.0
     }
 
     TPCANMsg msg = {
@@ -131,6 +150,13 @@ bool CanManager::boardReboot(void) {
         return false;
     }
 
+    // 虚拟 CAN 模式：模拟重启
+    if (m_channel == VIRTUAL_CAN_CHANNEL) {
+        appendLog("虚拟板卡重启成功");
+        LeaveCriticalSection(&m_criticalSection);
+        return true;
+    }
+
     TPCANMsg msg = {
         .ID = PLATFORM_RX,
         .MSGTYPE = PCAN_MODE_STANDARD,
@@ -150,14 +176,88 @@ bool CanManager::boardReboot(void) {
 }
 
 
-bool CanManager::firmwareUpgrade(const char* fileName, bool testMode)
-{
+// 虚拟 CAN 固件升级
+bool CanManager::virtualCAN_FirmwareUpgrade(const wchar_t* fileName) {
+    char logMsg[256];
+    appendLog("虚拟 CAN 模式：模拟固件升级...");
+
+    // 打开源文件
+    HANDLE hSrcFile = CreateFileW(fileName, GENERIC_READ, FILE_SHARE_READ, NULL,
+                                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hSrcFile == INVALID_HANDLE_VALUE) {
+        appendLog("无法打开源固件文件");
+        return false;
+    }
+
+    // 创建输出文件
+    char outputFileName[256];
+    GetModuleFileNameA(NULL, outputFileName, 256);
+    char* lastSlash = strrchr(outputFileName, '\\');
+    if (lastSlash) {
+        *(lastSlash + 1) = '\0';
+    }
+    strcat(outputFileName, "virtual_firmware.bin");
+
+    HANDLE hDstFile = CreateFileA(outputFileName, GENERIC_WRITE, 0, NULL,
+                                  CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hDstFile == INVALID_HANDLE_VALUE) {
+        CloseHandle(hSrcFile);
+        appendLog("无法创建输出文件");
+        return false;
+    }
+
+    DWORD fileSize = GetFileSize(hSrcFile, NULL);
+    sprintf(logMsg, "开始固件升级, 固件大小: %u 字节", fileSize);
+    appendLog(logMsg);
+    appendLog("输出文件: virtual_firmware.bin");
+
+    // 模拟 Flash 擦除
+    Sleep(500);
+    appendLog("Flash 擦除完成");
+
+    // 复制文件并模拟进度
+    BYTE buffer[4096];
+    DWORD bytesRead, bytesWritten;
+    DWORD totalBytes = 0;
+
+    while (ReadFile(hSrcFile, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
+        WriteFile(hDstFile, buffer, bytesRead, &bytesWritten, NULL);
+        totalBytes += bytesRead;
+
+        // 每 64 字节更新一次进度
+        if (totalBytes % 64 == 0 || totalBytes == fileSize) {
+            if (progress_call) {
+                int percent = (int)(totalBytes * 100 / fileSize);
+                progress_call(percent);
+            }
+            // 模拟一些延迟
+            if (totalBytes % 1024 == 0) {
+                Sleep(10);
+            }
+        }
+    }
+
+    CloseHandle(hSrcFile);
+    CloseHandle(hDstFile);
+
+    Sleep(200);
+    appendLog("固件发送完成");
+    Sleep(200);
+    appendLog("固件确认完成");
+
+    sprintf(logMsg, "虚拟固件已保存到: %s", outputFileName);
+    appendLog(logMsg);
+
+    return true;
+}
+
+// PCAN 固件升级
+bool CanManager::pcan_FirmwareUpgrade(const wchar_t* fileName, bool testMode) {
     char logMsg[128];
-    HANDLE hFile = CreateFileA(fileName, GENERIC_READ, FILE_SHARE_READ, NULL,
+    HANDLE hFile = CreateFileW(fileName, GENERIC_READ, FILE_SHARE_READ, NULL,
                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
-        sprintf(logMsg, "无法打开文件: %s", fileName);
-        appendLog(logMsg);
+        appendLog("无法打开固件文件");
         return false;
     }
 
@@ -247,13 +347,33 @@ bool CanManager::firmwareUpgrade(const char* fileName, bool testMode)
     }
 
     if (code == FW_CODE_CONFIRM && offset == 0x55AA55AA) {
-        sprintf(logMsg, "文件 %s 上传完成. 点击重启，板卡将在45-60秒内完成重启", fileName);
-        appendLog(logMsg);
+        appendLog("固件上传完成. 点击重启，板卡将在45-60秒内完成重启");
         return true;
     } else if (code == FW_CODE_TRANFER_ERROR) {
         appendLog("固件更新失败");
     }
     return false;
+}
+
+// 固件升级（主调度函数）
+bool CanManager::firmwareUpgrade(const wchar_t* fileName, bool testMode)
+{
+    EnterCriticalSection(&m_criticalSection);
+
+    if (m_channel == PCAN_NONEBUS) {
+        LeaveCriticalSection(&m_criticalSection);
+        appendLog("CAN已断开连接, 请重新连接");
+        return false;
+    }
+
+    LeaveCriticalSection(&m_criticalSection);
+
+    // 根据通道类型选择升级方式
+    if (m_channel == VIRTUAL_CAN_CHANNEL) {
+        return virtualCAN_FirmwareUpgrade(fileName);
+    } else {
+        return pcan_FirmwareUpgrade(fileName, testMode);
+    }
 }
 
 int CanManager::detectDevice(TPCANHandle* channels, int maxCount)

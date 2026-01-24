@@ -103,14 +103,25 @@ void getDeviceList(HWND hwnd) {
     wchar_t buf[64];
     HWND hChannel = GetDlgItem(hwnd, IDC_COMBO_CHANNEL);
     CanManager_SetCallback(g_canManager, AppendLog);
-    g_channelCount = CanManager_DetectDevice(g_canManager, g_channels, MAX_DEVICES);
 
     SendMessage(hChannel, CB_RESETCONTENT, 0, 0);
 
+    // 检测真实 CAN 设备
+    g_channelCount = CanManager_DetectDevice(g_canManager, g_channels, MAX_DEVICES);
+
+    // 添加真实设备到列表
     for (int i = 0; i < g_channelCount; i++) {
         wsprintfW(buf, L"PCAN-USB: %xh", g_channels[i]);
         SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)buf);
     }
+
+    // 将虚拟 CAN 添加到列表末尾
+    if (g_channelCount < MAX_DEVICES) {
+        SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)L"虚拟 CAN (测试模式)");
+        g_channels[g_channelCount] = VIRTUAL_CAN_CHANNEL;
+        g_channelCount++;
+    }
+
     SendMessage(hChannel, CB_SETCURSEL, 0, 0);
 }
 
@@ -328,6 +339,13 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             HWND hProgress = GetDlgItem(hwnd, IDC_PROGRESS);
             if (hProgress) {
                 SendMessage(hProgress, PBM_SETPOS, wParam, 0);
+            }
+            // 更新百分比文本
+            HWND hPercent = GetDlgItem(hwnd, IDC_LABEL_PERCENT);
+            if (hPercent) {
+                wchar_t buf[16];
+                wsprintfW(buf, L"%d%%", wParam);
+                SetWindowTextW(hPercent, buf);
             }
             return TRUE;
         }

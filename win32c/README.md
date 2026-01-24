@@ -9,10 +9,16 @@
   - 支持多种波特率（10K - 1M）
   - 连接/断开设备管理
 
+- **虚拟 CAN 支持（测试模式）**
+  - 无需硬件即可测试 GUI 功能
+  - 模拟固件升级流程并保存到文件（`virtual_firmware.bin`）
+  - 模拟版本查询和板卡重启
+  - 自动显示在设备列表末尾（在所有真实设备之后）
+
 - **固件升级功能**
   - 读取 .bin 固件文件
   - 通过 CAN 总线发送固件数据
-  - 实时进度显示
+  - 实时进度条和百分比显示
   - 支持测试模式（第二次重启后恢复原固件）
 
 - **板卡命令**
@@ -24,6 +30,7 @@
   - 支持中文界面（微软雅黑字体）
   - 实时日志显示
   - 进度条显示升级进度
+  - 百分比数值显示（0% - 100%）
 
 ## 目录结构
 
@@ -115,7 +122,7 @@ build/can-upgrade.exe
 | 特性 | Visual Studio | MinGW 交叉编译 |
 |------|--------------|----------------|
 | 编译环境 | Windows | Linux |
-| 可执行文件大小 | ~29 KB | ~55 KB |
+| 可执行文件大小 | ~30 KB | ~121 KB |
 | 编译器 | MSVC | GCC |
 | 链接方式 | 动态链接系统运行时 | 静态链接 libgcc |
 | 调试支持 | 完美 | 较好 |
@@ -156,13 +163,13 @@ build/can-upgrade.exe
 
 | 编译器 | 可执行文件大小 | 说明 |
 |--------|---------------|------|
-| MSVC (VS2022) | ~29 KB | Windows 原生编译，体积最小 |
-| MinGW GCC | ~55 KB | Linux 交叉编译 |
-| C++ 版本 (wincpp) | MSVC: ~31 KB / MinGW: ~121 KB | 相同功能的 C++ 实现 |
+| MSVC (VS2022) | ~30 KB | Windows 原生编译，体积最小 |
+| MinGW GCC | ~121 KB | Linux 交叉编译 |
+| C++ 版本 (win32cpp) | MSVC: ~34 KB / MinGW: ~121 KB | 相同功能的 C++ 实现 |
 
 ### MSVC 版本详细分析
 
-**文件大小**: 29,696 字节 ≈ 29 KB
+**文件大小**: 30,720 字节 ≈ 30 KB
 
 **段结构组成**:
 
@@ -236,12 +243,12 @@ build/can-upgrade.exe
 | 4 | FW_CODE_FLASH_ERROR | Flash 错误 |
 | 5 | FW_CODE_TRANFER_ERROR | 传输错误 |
 
-## 与 wincpp 项目对比
+## 与 win32cpp 项目对比
 
-| 特性 | wincpp (C++, MSVC) | wincpp (C++, MinGW) | win32c (C, MinGW) | win32c (C, MSVC) |
+| 特性 | win32cpp (C++, MSVC) | win32cpp (C++, MinGW) | win32c (C, MinGW) | win32c (C, MSVC) |
 |------|-------------------|-------------------|-------------------|-------------------|
 | 语言 | C++ | C++ | C | C |
-| exe 大小 | ~31KB | ~121KB | ~55KB | ~29KB |
+| exe 大小 | ~34KB | ~121KB | ~121KB | ~30KB |
 | 编译器 | MSVC | GCC | GCC | MSVC |
 | 同步机制 | CRITICAL_SECTION | CRITICAL_SECTION | CRITICAL_SECTION | CRITICAL_SECTION |
 | 容器 | 固定数组 | 固定数组 | 固定数组 | 固定数组 |
