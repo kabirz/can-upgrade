@@ -221,6 +221,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     }
                 }
                 case IDC_BUTTON_GETVERSION: {
+                    EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_GETVERSION), FALSE);
                     uint32_t version = CanManager::getInstance().getFirmwareVersion();
                     if (version) {
                         wchar_t verMsg[32];
@@ -228,6 +229,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                               (version >> 16) & 0xFF, (version >> 8) & 0xFF);
                         SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), verMsg);
                     }
+                    EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_GETVERSION), TRUE);
                     return TRUE;
                 }
                 case IDC_BUTTON_REBOOT: {

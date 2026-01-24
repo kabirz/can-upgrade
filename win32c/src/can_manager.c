@@ -76,7 +76,9 @@ int CanManager_Connect(CanManager* mgr, TPCANHandle channel, TPCANBaudrate baudr
     } else {
         mgr->channel = channel;
         LeaveCriticalSection(&mgr->criticalSection);
-        appendLog(mgr, "CAN 连接成功");
+        char logMsg[32];
+        sprintf(logMsg, "CAN(id=%xh) 连接成功", channel);
+        appendLog(mgr, logMsg);
         return 1;
     }
 }
@@ -87,10 +89,12 @@ void CanManager_Disconnect(CanManager* mgr) {
 
     EnterCriticalSection(&mgr->criticalSection);
 
+    char logMsg[32];
+    sprintf(logMsg, "CAN(id=%xh) 连接已断开", mgr->channel);
     CAN_Uninitialize(mgr->channel);
     mgr->channel = PCAN_NONEBUS;
     LeaveCriticalSection(&mgr->criticalSection);
-    appendLog(mgr, "CAN 连接已断开");
+    appendLog(mgr, logMsg);
 }
 
 // 等待 CAN 响应

@@ -38,7 +38,9 @@ bool CanManager::connect(TPCANHandle channel, TPCANBaudrate baudrate) {
     } else {
         m_channel = channel;
         LeaveCriticalSection(&m_criticalSection);
-        appendLog("CAN 连接成功");
+        char logMsg[32];
+        sprintf(logMsg, "CAN(id=%xh) 连接成功", channel);
+        appendLog(logMsg);
         return true;
     }
 }
@@ -46,10 +48,12 @@ bool CanManager::connect(TPCANHandle channel, TPCANBaudrate baudrate) {
 void CanManager::disconnect(void) {
     EnterCriticalSection(&m_criticalSection);
 
+    char logMsg[32];
+    sprintf(logMsg, "CAN(id=%xh) 连接已断开", m_channel);
     CAN_Uninitialize(m_channel);
     m_channel = PCAN_NONEBUS;
     LeaveCriticalSection(&m_criticalSection);
-    appendLog("CAN 连接已断开");
+    appendLog(logMsg);
 }
 
 bool CanManager::CAN_WaitForResponse(uint32_t* code, uint32_t* param, int timeoutMs) {
