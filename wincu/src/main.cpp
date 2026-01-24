@@ -190,7 +190,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_GETVERSION), FALSE);
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REBOOT), FALSE);
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REFRESH), TRUE);
-                        SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), L"固件版本: 未连接");
+                        SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), L"固件版本: 未获取");
                         EnableWindow(hChannel, TRUE);
                         EnableWindow(hBaudRate, TRUE);
                         return TRUE;

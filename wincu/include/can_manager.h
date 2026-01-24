@@ -7,18 +7,22 @@
 
 #define MAX_DEVICES 16
 
-// CAN ID definitions
-#define PLATFORM_RX     0x101    // Command to board
-#define PLATFORM_TX     0x102    // Response from board
-#define FW_DATA_RX      0x103    // Firmware data
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-// Board commands
+// CAN ID 定义
+#define PLATFORM_RX     0x101    // 发送到板卡的命令
+#define PLATFORM_TX     0x102    // 板卡响应
+#define FW_DATA_RX      0x103    // 固件数据
+
+// 板卡命令
 #define BOARD_START_UPDATE  0
 #define BOARD_CONFIRM       1
 #define BOARD_VERSION       2
 #define BOARD_REBOOT        3
 
-// Firmware response codes
+// 固件响应码
 #define FW_CODE_OFFSET          0
 #define FW_CODE_UPDATE_SUCCESS  1
 #define FW_CODE_VERSION         2
@@ -31,7 +35,9 @@ typedef struct {
     uint32_t val;
 } can_frame_t;
 
+// 日志回调函数类型
 typedef void (*msgCallback)(const char * msg);
+// 进度回调函数类型
 typedef void (*progressCallback)(int percent);
 
 class CanManager {
@@ -65,5 +71,8 @@ private:
     msgCallback append_msg;
     progressCallback progress_call;
 };
+#ifdef __cplusplus
+}
+#endif
 
 #endif

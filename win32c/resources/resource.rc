@@ -1,5 +1,4 @@
 #include <resource.h>
-#include <afxres.h>
 #include <windows.h>
 
 #pragma code_page(65001)
@@ -61,7 +60,7 @@ BEGIN
     GROUPBOX        "状态日志和板卡命令", IDC_STATIC, 7, 117, 370, 97
     EDITTEXT        IDC_EDIT_LOG, 15, 128, 295, 78, ES_MULTILINE |
                     ES_AUTOVSCROLL | WS_VSCROLL | ES_READONLY
-    LTEXT           "固件版本: 未连接", IDC_LABEL_VERSION, 315, 130, 60, 10, SS_LEFT
+    LTEXT           "固件版本: 未获取", IDC_LABEL_VERSION, 315, 130, 60, 10, SS_LEFT
     PUSHBUTTON      "获取版本", IDC_BUTTON_GETVERSION, 325, 142, 45, 14, WS_TABSTOP
     PUSHBUTTON      "重启板卡", IDC_BUTTON_REBOOT, 325, 165, 45, 14, WS_TABSTOP
     PUSHBUTTON      "清空日志", IDC_BUTTON_CLEAR_LOG, 325, 190, 45, 14, WS_TABSTOP

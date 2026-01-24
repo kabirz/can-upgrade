@@ -1,6 +1,6 @@
-# CAN 固件升级工具 (C 语言版本)
+# CAN 固件升级工具 (C++ 版本)
 
-纯 C 语言实现的 CAN 固件升级工具，用于通过 PCAN 接口升级板卡固件。
+纯 C++20 实现的 CAN 固件升级工具，用于通过 PCAN 接口升级板卡固件。
 
 ## 功能特性
 
@@ -28,14 +28,14 @@
 ## 目录结构
 
 ```
-win32c/
+wincu/
 ├── include/            # 头文件
 │   ├── can_manager.h   # CAN 管理器接口
 │   ├── resource.h      # 资源 ID 定义
 │   └── PCANBasic.h     # PCAN-Basic API
 ├── src/                # 源文件
-│   ├── main.c          # 主程序和 GUI 逻辑
-│   └── can_manager.c   # CAN 通信管理实现
+│   ├── main.cpp        # 主程序和 GUI 逻辑
+│   └── can_manager.cpp # CAN 通信管理实现
 ├── resources/          # 资源文件
 │   ├── resource.rc     # Windows 资源脚本
 │   └── icon.ico        # 应用图标
@@ -53,8 +53,8 @@ win32c/
 
 **环境要求**：
 - Windows 10/11
-- Visual Studio 2019 或更高版本（支持 CMake 默认检测）
-- CMake（>= 3.25）
+- Visual Studio 2019 或更高版本（需支持 C++20，CMake 会自动检测）
+- CMake（>= 3.20）
 
 **一键编译**：
 ```powershell
@@ -80,7 +80,7 @@ out/Release/can-upgrade.exe
 
 **环境要求**：
 - Ubuntu/Debian/Arch Linux
-- MinGW-w64 交叉编译工具链
+- MinGW-w64 交叉编译工具链（支持 C++20）
 
 **安装依赖**：
 ```bash
@@ -115,12 +115,13 @@ build/can-upgrade.exe
 | 特性 | Visual Studio | MinGW 交叉编译 |
 |------|--------------|----------------|
 | 编译环境 | Windows | Linux |
-| 可执行文件大小 | ~29 KB | ~55 KB |
+| C++ 标准 | C++20 | C++20 |
+| 可执行文件大小 | ~31 KB | ~121 KB |
 | 编译器 | MSVC | GCC |
-| 链接方式 | 动态链接系统运行时 | 静态链接 libgcc |
+| 链接方式 | 动态链接系统运行时 | 静态链接 libgcc/libstdc++ |
 | 调试支持 | 完美 | 较好 |
 
-**说明**：MinGW 编译的文件较大主要是因为静态链接了 `libgcc`，这使程序可以在没有安装 MinGW 运行时的系统上直接运行。
+**说明**：MinGW 编译的文件较大主要是因为静态链接了 `libgcc` 和 `libstdc++`，这使程序可以在没有安装 MinGW 运行时的系统上直接运行。
 
 ## 项目依赖
 
@@ -138,17 +139,10 @@ build/can-upgrade.exe
 | comdlg32 | 通用对话框库（文件选择） |
 | gdi32 | GDI 图形设备接口 |
 
-### 编译优化选项
+### 编译要求
 
-| 选项 | 说明 |
-|------|------|
-| `-Os` | 优化代码大小 |
-| `-ffunction-sections` | 将函数放入独立段，便于链接时删除未使用代码 |
-| `-fdata-sections` | 将数据放入独立段，便于链接时删除未使用数据 |
-| `-mwindows` | Windows GUI 应用程序（无控制台窗口） |
-| `-static-libgcc` | 静态链接 libgcc，减少运行时依赖 |
-| `-s` / `--strip-all` | 去除符号表，减小文件体积 |
-| `--gc-sections` | 删除未使用的段 |
+- **C++ 标准**: C++20（使用了指定初始值设定项等特性）
+- **字符集**: Unicode
 
 ## 二进制文件大小分析
 
@@ -156,29 +150,24 @@ build/can-upgrade.exe
 
 | 编译器 | 可执行文件大小 | 说明 |
 |--------|---------------|------|
-| MSVC (VS2022) | ~29 KB | Windows 原生编译，体积最小 |
-| MinGW GCC | ~55 KB | Linux 交叉编译 |
-| C++ 版本 (wincu) | MSVC: ~31 KB / MinGW: ~121 KB | 相同功能的 C++ 实现 |
+| MSVC (VS2022) | ~31 KB | Windows 原生编译，体积最小 |
+| MinGW GCC | ~121 KB | Linux 交叉编译 |
+| C 版本 (win32c) | ~29 KB | 相同功能的 C 实现 |
 
 ### MSVC 版本详细分析
 
-**文件大小**: 29,696 字节 ≈ 29 KB
+**文件大小**: 31,744 字节 ≈ 31 KB
 
 **段结构组成**:
 
-| 段名 | 描述 | 文件占用 | 内存占用 |
-|------|------|----------|----------|
-| .text | 代码段 | 9,728 B | 9,708 B |
-| .rdata | 只读数据（常量、字符串） | 7,168 B | 6,812 B |
-| .rsrc | 资源（图标、菜单、对话框） | 9,728 B | 9,352 B |
-| .pdata | 异常处理表 | 1,024 B | 624 B |
-| .data | 读写数据（全局变量） | 512 B | 400 B |
-| .reloc | 重定位表 | 512 B | 68 B |
-
-**内存占用**:
-- **运行时镜像**: 48 KB
-- **栈空间**: 保留 1 MB / 实际 4 KB
-- **堆空间**: 保留 1 MB / 实际 4 KB
+| 段名 | 描述 | 文件占用 |
+|------|------|----------|
+| .text | 代码段 | ~12 KB |
+| .rdata | 只读数据（常量、字符串） | ~12 KB |
+| .rsrc | 资源（图标、菜单、对话框） | ~12 KB |
+| .data | 读写数据（全局变量） | ~4 KB |
+| .pdata | 异常处理表 | ~4 KB |
+| .reloc | 重定位表 | ~4 KB |
 
 ### 运行时依赖
 
@@ -236,17 +225,18 @@ build/can-upgrade.exe
 | 4 | FW_CODE_FLASH_ERROR | Flash 错误 |
 | 5 | FW_CODE_TRANFER_ERROR | 传输错误 |
 
-## 与 wincu 项目对比
+## 与 win32c 项目对比
 
-| 特性 | wincu (C++, MSVC) | wincu (C++, MinGW) | win32c (C, MinGW) | win32c (C, MSVC) |
-|------|-------------------|-------------------|-------------------|-------------------|
-| 语言 | C++ | C++ | C | C |
-| exe 大小 | ~31KB | ~121KB | ~55KB | ~29KB |
-| 编译器 | MSVC | GCC | GCC | MSVC |
-| 同步机制 | CRITICAL_SECTION | CRITICAL_SECTION | CRITICAL_SECTION | CRITICAL_SECTION |
-| 容器 | 固定数组 | 固定数组 | 固定数组 | 固定数组 |
-| 内存管理 | new/delete | new/delete | malloc/free | malloc/free |
-| 接口 | class 成员函数 | class 成员函数 | 不透明句柄 + 函数 | 不透明句柄 + 函数 |
+| 特性 | wincu (C++) | win32c (C, MSVC) |
+|------|-------------|-------------------|
+| 语言 | C++20 | C |
+| exe 大小 | ~31 KB | ~29 KB |
+| 编译器 | MSVC | MSVC |
+| 同步机制 | CRITICAL_SECTION | CRITICAL_SECTION |
+| 容器 | 固定数组 | 固定数组 |
+| 内存管理 | new/delete | malloc/free |
+| 接口 | class 成员函数 | 不透明句柄 + 函数 |
+| 代码风格 | 现代 C++ | 传统 C |
 
 ## 许可证
 
