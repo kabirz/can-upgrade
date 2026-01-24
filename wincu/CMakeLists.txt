@@ -29,16 +29,23 @@ add_executable(can-upgrade
     ${RESOURCES}
 )
 
-# Link Windows subsystem (GUI mode)
-if(WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    target_link_options(can-upgrade PRIVATE -mwindows)
-endif()
-
-# Static link C++ runtime for MinGW
+# Optimization flags to reduce exe size
 if(MINGW)
+    target_compile_options(can-upgrade PRIVATE
+        -Os                    # Optimize for size
+        -s                     # Strip symbols (also in link options)
+        -fno-exceptions        # Disable C++ exceptions
+        -fno-rtti              # Disable RTTI
+        -ffunction-sections    # Separate functions into sections
+        -fdata-sections        # Separate data into sections
+    )
     target_link_options(can-upgrade PRIVATE
+        -mwindows
         -static-libgcc
         -static-libstdc++
+        -s                     # Strip symbols
+        -Wl,--gc-sections      # Remove unused sections
+        -Wl,--strip-all        # Strip all symbols
     )
 endif()
 
@@ -55,9 +62,6 @@ target_include_directories(can-upgrade PRIVATE
     include
 )
 
-target_link_options(can-upgrade PRIVATE "-s")
-
 target_link_libraries(can-upgrade PRIVATE
     "${CMAKE_SOURCE_DIR}/libs/x64/PCANBasic.lib"
 )
-

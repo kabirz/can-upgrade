@@ -22,31 +22,36 @@ void CanManager::appendLog(const char* msg)
 }
 
 bool CanManager::connect(TPCANHandle channel, TPCANBaudrate baudrate) {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    EnterCriticalSection(&m_criticalSection);
 
     if (m_channel != PCAN_NONEBUS) {
+        LeaveCriticalSection(&m_criticalSection);
         appendLog("CAN 连接已存在, 请勿重复连接");
         return true;
     }
 
     TPCANStatus status = CAN_Initialize(channel, baudrate, 0, 0, 0);
     if (status != PCAN_ERROR_OK) {
+        LeaveCriticalSection(&m_criticalSection);
         appendLog("CAN 初始化失败");
         return false;
     } else {
         m_channel = channel;
+        LeaveCriticalSection(&m_criticalSection);
         appendLog("CAN 连接成功");
         return true;
     }
 }
 
 void CanManager::disconnect(void) {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    EnterCriticalSection(&m_criticalSection);
 
     CAN_Uninitialize(m_channel);
     m_channel = PCAN_NONEBUS;
+    LeaveCriticalSection(&m_criticalSection);
     appendLog("CAN 连接已断开");
 }
+
 bool CanManager::CAN_WaitForResponse(uint32_t* code, uint32_t* param, int timeoutMs) {
 
     TPCANMsg msg;
@@ -71,9 +76,10 @@ bool CanManager::CAN_WaitForResponse(uint32_t* code, uint32_t* param, int timeou
 
 
 uint32_t CanManager::getFirmwareVersion(void) {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    EnterCriticalSection(&m_criticalSection);
 
     if (m_channel==PCAN_NONEBUS) {
+        LeaveCriticalSection(&m_criticalSection);
         appendLog("CAN已断开连接, 请重新连接");
         return 0;
     }
@@ -88,11 +94,13 @@ uint32_t CanManager::getFirmwareVersion(void) {
 
     TPCANStatus status = CAN_Write(m_channel, &msg);
     if (status != PCAN_ERROR_OK) {
+        LeaveCriticalSection(&m_criticalSection);
         appendLog("CAN 发送失败");
         return 0;
     }
     uint32_t code, version;
     if (!CAN_WaitForResponse(&code, &version, 5000)) {
+        LeaveCriticalSection(&m_criticalSection);
         appendLog("CAN 读取失败，超时！！");
         return 0;
     }
@@ -102,16 +110,19 @@ uint32_t CanManager::getFirmwareVersion(void) {
         sprintf(buf, "固件版本: v%u.%u.%u", (version >> 24) & 0xFF,
                 (version >> 16) & 0xFF, (version >> 8) & 0xFF);
         appendLog(buf);
+        LeaveCriticalSection(&m_criticalSection);
         return version;
     }
 
+    LeaveCriticalSection(&m_criticalSection);
     appendLog("CAN 读取失败，数据错误！！");
     return 0;
 }
 
 bool CanManager::boardReboot(void) {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    EnterCriticalSection(&m_criticalSection);
     if (m_channel==PCAN_NONEBUS) {
+        LeaveCriticalSection(&m_criticalSection);
         appendLog("CAN已断开连接, 请重新连接");
         return false;
     }
@@ -125,12 +136,13 @@ bool CanManager::boardReboot(void) {
     frame->code = BOARD_REBOOT;
 
     TPCANStatus status = CAN_Write(m_channel, &msg);
+    LeaveCriticalSection(&m_criticalSection);
     if (status != PCAN_ERROR_OK) {
         appendLog("CAN 发送失败");
         return false;
     }
 
-    return 0;
+    return true;
 }
 
 
@@ -180,7 +192,7 @@ bool CanManager::firmwareUpgrade(const char* fileName, bool testMode)
 
     DWORD bytesSent = 0;
     DWORD bytesRead;
-    
+
     msg.ID = FW_DATA_RX;
     while (ReadFile(hFile, msg.DATA, 8, &bytesRead, NULL) && bytesRead > 0) {
         msg.LEN = bytesRead;
@@ -209,6 +221,7 @@ bool CanManager::firmwareUpgrade(const char* fileName, bool testMode)
             if (code != FW_CODE_OFFSET) {
                 CloseHandle(hFile);
                 sprintf(logMsg, "固件升级失败: code(%u), offset(%u)", code, offset);
+                appendLog(logMsg);
                 return false;
             }
         }
@@ -239,20 +252,19 @@ bool CanManager::firmwareUpgrade(const char* fileName, bool testMode)
     return false;
 }
 
-std::vector<TPCANHandle> CanManager::detectDevice(void)
+int CanManager::detectDevice(TPCANHandle* channels, int maxCount)
 {
-    std::vector<TPCANHandle> v;
+    int count = 0;
     char msg[64];
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 16 && count < maxCount; i++) {
         TPCANHandle channel = PCAN_NONEBUS;
         sprintf(msg, "devicetype=pcan_usb,controllernumber=%d", i);
         TPCANStatus result = CAN_LookUpChannel(msg, &channel);
         if (result == PCAN_ERROR_OK && channel != PCAN_NONEBUS) {
-            v.push_back(channel);
+            channels[count++] = channel;
         }
- 
     }
-    sprintf(msg, "查询到%u个设备", v.size());
+    sprintf(msg, "查询到%d个设备", count);
     appendLog(msg);
-    return v;
+    return count;
 }

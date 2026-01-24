@@ -1,10 +1,11 @@
 #ifndef CAN_MANAGER_H
 #define CAN_MANAGER_H
 
-#include <mutex>
-#include <vector>
 #include <windows.h>
+#include <stdint.h>
 #include <PCANBasic.h>
+
+#define MAX_DEVICES 16
 
 // CAN ID definitions
 #define PLATFORM_RX     0x101    // Command to board
@@ -47,15 +48,19 @@ public:
     uint32_t getFirmwareVersion(void);
     bool boardReboot(void);
     bool firmwareUpgrade(const char* fileName, bool testMode);
-    std::vector<TPCANHandle> detectDevice(void);
+    int detectDevice(TPCANHandle* channels, int maxCount);
 
 private:
-    CanManager(): m_channel(PCAN_NONEBUS) {}; // 私有构造
-    ~CanManager() = default;
+    CanManager(): m_channel(PCAN_NONEBUS) {
+        InitializeCriticalSection(&m_criticalSection);
+    }
+    ~CanManager() {
+        DeleteCriticalSection(&m_criticalSection);
+    }
     void appendLog(const char *msg);
     bool CAN_WaitForResponse(uint32_t* code, uint32_t* param, int timeoutMs);
 
-    mutable std::mutex m_mutex;
+    CRITICAL_SECTION m_criticalSection;
     TPCANHandle m_channel;
     msgCallback append_msg;
     progressCallback progress_call;

@@ -3,7 +3,6 @@
 #include <commdlg.h>
 #include <resource.h>
 #include <can_manager.h>
-#include <map>
 
 // 自定义消息定义
 #define WM_UPDATE_PROGRESS    (WM_APP + 1)
@@ -75,20 +74,19 @@ DWORD WINAPI FirmwareUpdateThread(LPVOID lpParam) {
     return 0;
 }
 
-static std::map<int, TPCANHandle> channelMap;
+static TPCANHandle g_channels[MAX_DEVICES];
+static int g_channelCount = 0;
+
 void getDeviceList(HWND hwnd) {
     wchar_t buf[64];
     HWND hChannel = GetDlgItem(hwnd, IDC_COMBO_CHANNEL);
     CanManager::getInstance().setCallback(AppendLog);
-    auto chn_lists = CanManager::getInstance().detectDevice(); 
-    
-    channelMap.clear();
+    g_channelCount = CanManager::getInstance().detectDevice(g_channels, MAX_DEVICES);
+
     SendMessage(hChannel, CB_RESETCONTENT, 0, 0);
 
-    int count = 0;
-    for (auto it = chn_lists.begin(); it != chn_lists.end(); ++it) {
-        channelMap[count] = *it;
-        wsprintfW(buf, L"PCAN-USB: %xh", *it);
+    for (int i = 0; i < g_channelCount; i++) {
+        wsprintfW(buf, L"PCAN-USB: %xh", g_channels[i]);
         SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)buf);
     }
     SendMessage(hChannel, CB_SETCURSEL, 0, 0);
@@ -200,8 +198,8 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                         // 连接
                         int cnl_idx = SendMessage(hChannel, CB_GETCURSEL, 0, 0);
                         int baud_idx = SendMessage(hBaudRate, CB_GETCURSEL, 0, 0);
-                        if (cnl_idx >= 0 && baud_idx >= 0) {
-                            bool res = CanManager::getInstance().connect(channelMap[cnl_idx], BAUD_RATES[baud_idx]);
+                        if (cnl_idx >= 0 && cnl_idx < g_channelCount && baud_idx >= 0) {
+                            bool res = CanManager::getInstance().connect(g_channels[cnl_idx], BAUD_RATES[baud_idx]);
                             if (res) {
                                 isConnected = true;
                                 SetWindowTextW(hConnectBtn, L"断开");
@@ -214,10 +212,10 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                                 return TRUE;
                             }
                         }
-                        MessageBoxW(hwnd, 
-                                    L"连接失败\n"
-                                    L"请查看设备是否接入或者设备被其他程序占用",
-                                    L"CAN 连接", MB_OK | MB_ICONINFORMATION
+                        MessageBoxW(hwnd,
+                                    L"连接失败\n\n"
+                                    L"请查看设备是否接入\n或者设备是否被被其他程序占用",
+                                    L"CAN 连接失败", MB_OK | MB_ICONWARNING 
                                 );
                         return FALSE;
                     }
