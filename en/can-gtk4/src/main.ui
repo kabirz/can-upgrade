@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class="GtkApplicationWindow" id="main_window">
+    <property name="default-width">380</property>
+    <property name="default-height">240</property>
+    <property name="resizable">false</property>
+    <property name="title">CAN Firmware Upgrade Tool</property>
+    <child>
+      <object class="GtkBox" id="main_box">
+        <property name="orientation">vertical</property>
+        <property name="spacing">5</property>
+        <property name="margin-start">7</property>
+        <property name="margin-end">7</property>
+        <property name="margin-top">7</property>
+        <property name="margin-bottom">7</property>
+
+        <!-- Connection Group -->
+        <child>
+          <object class="GtkFrame" id="connection_frame">
+            <property name="label">Connection</property>
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">horizontal</property>
+                <property name="spacing">5</property>
+                <property name="margin-start">10</property>
+                <property name="margin-end">10</property>
+                <property name="margin-top">5</property>
+                <property name="margin-bottom">5</property>
+
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Device:</property>
+                    <property name="width-chars">8</property>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkDropDown" id="combo_channel">
+                    <property name="hexpand">true</property>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Baud Rate:</property>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkDropDown" id="combo_baudrate">
+                    <property name="hexpand">true</property>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkButton" id="button_refresh">
+                    <property name="label">Refresh</property>
+                    <property name="width-request">80</property>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkButton" id="button_connect">
+                    <property name="label">Connect</property>
+                    <property name="width-request">80</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Firmware Upgrade Group -->
+        <child>
+          <object class="GtkFrame" id="firmware_frame">
+            <property name="label">Firmware Upgrade</property>
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="spacing">5</property>
+                <property name="margin-start">10</property>
+                <property name="margin-end">10</property>
+                <property name="margin-top">5</property>
+                <property name="margin-bottom">5</property>
+
+                <!-- File selection row -->
+                <child>
+                  <object class="GtkBox">
+                    <property name="orientation">horizontal</property>
+                    <property name="spacing">5</property>
+
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label">Firmware:</property>
+                        <property name="width-chars">10</property>
+                      </object>
+                    </child>
+
+                    <child>
+                      <object class="GtkEntry" id="edit_firmware">
+                        <property name="editable">false</property>
+                        <property name="hexpand">true</property>
+                      </object>
+                    </child>
+
+                    <child>
+                      <object class="GtkButton" id="button_browse">
+                        <property name="label">Browse...</property>
+                        <property name="width-request">100</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+
+                <!-- Test mode checkbox -->
+                <child>
+                  <object class="GtkCheckButton" id="check_testmode">
+                    <property name="label">Test Mode (restore original firmware after second reboot)</property>
+                  </object>
+                </child>
+
+                <!-- Progress row -->
+                <child>
+                  <object class="GtkBox">
+                    <property name="orientation">horizontal</property>
+                    <property name="spacing">5</property>
+
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label">Progress:</property>
+                        <property name="width-chars">10</property>
+                      </object>
+                    </child>
+
+                    <child>
+                      <object class="GtkProgressBar" id="progress_bar">
+                        <property name="hexpand">true</property>
+                        <property name="show-text">true</property>
+                        <property name="text">0%</property>
+                      </object>
+                    </child>
+
+                    <child>
+                      <object class="GtkButton" id="button_upgrade">
+                        <property name="label">Upgrade</property>
+                        <property name="width-request">100</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Log and Commands Group -->
+        <child>
+          <object class="GtkFrame" id="log_frame">
+            <property name="label">Log and Board Commands</property>
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">horizontal</property>
+                <property name="spacing">5</property>
+                <property name="margin-start">10</property>
+                <property name="margin-end">10</property>
+                <property name="margin-top">5</property>
+                <property name="margin-bottom">5</property>
+
+                <!-- Log view -->
+                <child>
+                  <object class="GtkBox">
+                    <property name="orientation">vertical</property>
+                    <property name="hexpand">true</property>
+
+                    <child>
+                      <object class="GtkLabel" id="label_version">
+                        <property name="label">Version: Not connected</property>
+                        <property name="halign">start</property>
+                      </object>
+                    </child>
+
+                    <child>
+                      <object class="GtkScrolledWindow">
+                        <property name="vexpand">true</property>
+                        <property name="min-content-height">100</property>
+                        <child>
+                          <object class="GtkTextView" id="textview_log">
+                            <property name="editable">false</property>
+                            <property name="wrap-mode">word</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+
+                <!-- Command buttons -->
+                <child>
+                  <object class="GtkBox">
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">5</property>
+                    <property name="width-request">100</property>
+
+                    <child>
+                      <object class="GtkButton" id="button_getversion">
+                        <property name="label">Get Version</property>
+                      </object>
+                    </child>
+
+                    <child>
+                      <object class="GtkButton" id="button_reboot">
+                        <property name="label">Reboot</property>
+                      </object>
+                    </child>
+
+                    <child>
+                      <object class="GtkButton" id="button_clear_log">
+                        <property name="label">Clear Log</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+      </object>
+    </child>
+  </object>
+</interface>

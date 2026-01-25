@@ -1,0 +1,26 @@
+# Build directories
+build/
+out/
+*.o
+*.so
+*.a
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Executable
+can-upgrade
+*.exe
+
+# Virtual CAN test output
+virtual_firmware.bin
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*~
