@@ -1,0 +1,68 @@
+#include <resource.h>
+#include <windows.h>
+
+#pragma code_page(65001)
+
+// Application icon
+IDI_APPICON ICON "icon.ico"
+
+// Window icon
+IDI_APPICON_SMALL ICON "icon.ico"
+
+// Main menu
+IDR_MAINMENU MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Open...",                IDM_FILE_OPEN
+        MENUITEM "E&xit",                   IDM_FILE_EXIT
+    END
+    POPUP "&Edit"
+    BEGIN
+        MENUITEM "&Clear Log",              IDM_EDIT_CLEARLOG
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About",                  IDM_HELP_ABOUT
+    END
+END
+
+// Main dialog
+IDD_MAIN DIALOGEX 270, 100, 380, 222
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "CAN Firmware Upgrade Tool"
+FONT 9, "Microsoft YaHei", 400, 0, 0x0
+MENU IDR_MAINMENU
+BEGIN
+    // Connection settings group
+    GROUPBOX        "Connection", IDC_STATIC, 7, 7, 370, 30
+    LTEXT           "Device:", IDC_STATIC, 20, 15, 30, 12, SS_LEFT
+    COMBOBOX        IDC_COMBO_CHANNEL, 55, 15, 80, 60, CBS_DROPDOWNLIST | WS_VSCROLL
+    LTEXT           "Baud Rate:", IDC_STATIC, 145, 15, 40, 12, SS_LEFT
+    COMBOBOX        IDC_COMBO_BAUDRATE, 187, 15, 80, 60, CBS_DROPDOWNLIST | WS_VSCROLL
+    PUSHBUTTON      "Refresh", IDC_BUTTON_REFRESH, 277, 15, 45, 14, WS_TABSTOP
+    PUSHBUTTON      "Connect", IDC_BUTTON_CONNECT, 325, 15, 45, 14, WS_TABSTOP
+
+    // Firmware upgrade group
+    GROUPBOX        "Firmware Upgrade", IDC_STATIC, 7, 42, 370, 70
+    LTEXT           "Firmware:", IDC_STATIC, 20, 53, 35, 12, SS_LEFT
+    EDITTEXT        IDC_EDIT_FIRMWARE, 60, 53, 255, 14, ES_AUTOHSCROLL | ES_READONLY
+    PUSHBUTTON      "Browse...", IDC_BUTTON_BROWSE, 325, 53, 45, 14, WS_TABSTOP
+    CONTROL         "Test Mode (restore original firmware after second reboot)", IDC_CHECK_TESTMODE,
+                    "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 20, 70, 300, 12
+    LTEXT           "Progress:", IDC_STATIC, 20, 90, 40, 12, SS_LEFT
+    CONTROL         "", IDC_PROGRESS, "msctls_progress32", PBS_SMOOTH,
+                    60, 90, 242, 8
+    LTEXT           "0%", IDC_LABEL_PERCENT, 304, 90, 18, 12, SS_LEFT
+    PUSHBUTTON      "Upgrade", IDC_BUTTON_FLASH, 325, 90, 45, 14, WS_TABSTOP
+
+    // Log and board commands group
+    GROUPBOX        "Log and Board Commands", IDC_STATIC, 7, 117, 370, 97
+    EDITTEXT        IDC_EDIT_LOG, 15, 128, 295, 78, ES_MULTILINE |
+                    ES_AUTOVSCROLL | WS_VSCROLL | ES_READONLY
+    LTEXT           "Ver: N/A", IDC_LABEL_VERSION, 325, 130, 45, 10, SS_LEFT
+    PUSHBUTTON      "Get Version", IDC_BUTTON_GETVERSION, 325, 142, 45, 14, WS_TABSTOP
+    PUSHBUTTON      "Reboot", IDC_BUTTON_REBOOT, 325, 165, 45, 14, WS_TABSTOP
+    PUSHBUTTON      "Clear Log", IDC_BUTTON_CLEAR_LOG, 325, 190, 45, 14, WS_TABSTOP
+END

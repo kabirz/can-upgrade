@@ -1,0 +1,9 @@
+build/
+.cache
+*.o
+*.obj
+*.exe
+*.dll
+*.lib
+*.a
+*.patch
