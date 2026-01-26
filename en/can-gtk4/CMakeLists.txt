@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.25)
 project(can-upgrade LANGUAGES C)
 
+# Size optimization flags
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Os -ffunction-sections -fdata-sections")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -s")
+
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK4 IMPORTED_TARGET REQUIRED gtk4)
@@ -15,7 +19,7 @@ target_link_libraries(can-upgrade
     PkgConfig::GTK4
     Threads::Threads
 )
-install(FILES src/main.ui DESTINATION bin/resources)
+install(FILES resources/main.ui DESTINATION bin/resources)
 install(TARGETS can-upgrade DESTINATION bin)
 
 get_target_property(GTK4_INCLUDES PkgConfig::GTK4 INTERFACE_INCLUDE_DIRECTORIES)

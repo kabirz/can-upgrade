@@ -33,6 +33,7 @@ typedef struct {
     int isConnected;
     int isUpdating;
     int upgradeSuccess;
+    int last_progress_percent;
     CanManager *canManager;
     char ifNames[MAX_CAN_INTERFACES][MAX_IFNAME_LEN];
     int ifCount;
@@ -59,10 +60,40 @@ static const struct {
     {CAN_BAUD_1M, "1000K"}
 };
 
-// Progress callback
+// Progress update data for main thread
+typedef struct {
+    GtkProgressBar *progress_bar;
+    int percent;
+} ProgressUpdateData;
+
+// Main thread callback for progress update
+static gboolean UpdateProgressInMainThread(gpointer user_data) {
+    ProgressUpdateData *data = user_data;
+    char buf[32];
+    gtk_progress_bar_set_fraction(data->progress_bar, data->percent / 100.0);
+    snprintf(buf, sizeof(buf), "%d%%", data->percent);
+    gtk_progress_bar_set_text(data->progress_bar, buf);
+    g_free(data);
+    return G_SOURCE_REMOVE;
+}
+
+// Progress callback (called from worker thread)
+// Throttled: only update when progress changes by at least 1%
 static void OnProgressUpdate(int percent, gpointer user_data) {
-    (void)percent;
-    (void)user_data;
+    AppData *data = user_data;
+    if (!data || !data->progress_bar) return;
+
+    // Throttle: only update if progress changed significantly
+    if (percent <= data->last_progress_percent) return;
+    if (percent - data->last_progress_percent < 1 && percent != 100) return;
+
+    data->last_progress_percent = percent;
+
+    // Schedule UI update on main thread using g_idle_add
+    ProgressUpdateData *updateData = g_new(ProgressUpdateData, 1);
+    updateData->progress_bar = data->progress_bar;
+    updateData->percent = percent;
+    g_idle_add(UpdateProgressInMainThread, updateData);
 }
 
 // Append log callback wrapper
@@ -166,7 +197,7 @@ static void on_connect_clicked(GtkButton *button, AppData *data) {
         CanManager_Disconnect(data->canManager);
         data->isConnected = 0;
         gtk_button_set_label(data->button_connect, "Connect");
-        gtk_label_set_text(data->label_version, "Version: Not Retrieved");
+        gtk_label_set_text(data->label_version, "Ver: NA");
         UpdateButtonStates(data);
     } else {
         // Connect
@@ -228,7 +259,7 @@ static void on_getversion_clicked(GtkButton *button, AppData *data) {
     uint32_t version = CanManager_GetFirmwareVersion(data->canManager);
     if (version) {
         char verMsg[64];
-        snprintf(verMsg, sizeof(verMsg), "Firmware Version: v%u.%u.%u",
+        snprintf(verMsg, sizeof(verMsg), "Ver: v%u.%u.%u",
                  (version >> 24) & 0xFF, (version >> 16) & 0xFF, (version >> 8) & 0xFF);
         gtk_label_set_text(data->label_version, verMsg);
     }
@@ -238,16 +269,7 @@ static void on_getversion_clicked(GtkButton *button, AppData *data) {
 // Reboot button handler
 static void on_reboot_clicked(GtkButton *button, AppData *data) {
     (void)button;
-    GtkAlertDialog *alert = gtk_alert_dialog_new("Confirm Reboot");
-    gtk_alert_dialog_set_message(alert, "Confirm to reboot the board?");
-    const char *buttons[] = {"Cancel", "Reboot", NULL};
-    gtk_alert_dialog_set_buttons(alert, buttons);
-    gtk_alert_dialog_show(alert, GTK_WINDOW(data->main_window));
-    g_object_unref(alert);
-
-    // Note: In GTK4, alert dialogs are shown asynchronously
-    // For simplicity, we're not handling the response callback here
-    // A proper implementation would use a GtkAlertDialog response callback
+    CanManager_BoardReboot(data->canManager);
 }
 
 // Clear Log button handler
@@ -289,7 +311,7 @@ typedef struct {
 static gpointer FirmwareUpgradeThread(gpointer user_data) {
     UpgradeParams *params = user_data;
 
-    CanManager_SetProgressCallback(params->data->canManager, (progressCallback)OnProgressUpdate, NULL);
+    CanManager_SetProgressCallback(params->data->canManager, (progressCallback)OnProgressUpdate, params->data);
     params->data->upgradeSuccess = CanManager_FirmwareUpgrade(params->data->canManager,
                                                               params->fileName, params->testMode);
 
@@ -319,6 +341,7 @@ static void on_upgrade_clicked(GtkButton *button, AppData *data) {
     int testMode = gtk_check_button_get_active(data->check_testmode);
 
     data->isUpdating = 1;
+    data->last_progress_percent = -1;
     gtk_widget_set_sensitive(GTK_WIDGET(data->button_upgrade), FALSE);
     gtk_widget_set_sensitive(GTK_WIDGET(data->button_browse), FALSE);
     gtk_widget_set_sensitive(GTK_WIDGET(data->check_testmode), FALSE);

@@ -15,7 +15,6 @@ struct CanManager {
     pthread_mutex_t criticalSection;
     int sockFd;
     char ifName[MAX_IFNAME_LEN];
-    int isVirtual;
     msgCallback msgCallback;
     progressCallback progressCallback;
     gpointer msgUserData;
@@ -43,7 +42,6 @@ CanManager* CanManager_Create(void) {
     pthread_mutex_init(&mgr->criticalSection, NULL);
     mgr->sockFd = -1;
     mgr->ifName[0] = '\0';
-    mgr->isVirtual = 0;
     mgr->msgCallback = NULL;
     mgr->progressCallback = NULL;
     mgr->msgUserData = NULL;
@@ -101,9 +99,6 @@ int CanManager_Connect(CanManager* mgr, const char* ifName, CanBaudRate baudrate
         return 1;
     }
 
-    // Check if virtual CAN
-    mgr->isVirtual = (strncmp(ifName, "vcan", 4) == 0);
-
     // Create SocketCAN socket
     int sock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
     if (sock < 0) {
@@ -146,12 +141,8 @@ int CanManager_Connect(CanManager* mgr, const char* ifName, CanBaudRate baudrate
     pthread_mutex_unlock(&mgr->criticalSection);
 
     char logMsg[128];
-    if (mgr->isVirtual) {
-        snprintf(logMsg, sizeof(logMsg), "Virtual CAN (%s) connected successfully (Test Mode)", ifName);
-    } else {
-        snprintf(logMsg, sizeof(logMsg), "CAN (%s) connected successfully at %lu baud",
-                 ifName, (unsigned long)baudrate);
-    }
+    snprintf(logMsg, sizeof(logMsg), "CAN (%s) connected successfully at %lu baud",
+             ifName, (unsigned long)baudrate);
     appendLog(mgr, logMsg);
     return 1;
 }
@@ -181,16 +172,27 @@ static int CAN_WaitForResponse(CanManager* mgr, uint32_t* code, uint32_t* param,
 
     unsigned long startTime = GetTickCount();
     struct can_frame frame;
+    fd_set readfds;
+    struct timeval timeout;
 
     while ((int)(GetTickCount() - startTime) < timeoutMs) {
-        ssize_t nbytes = read(mgr->sockFd, &frame, sizeof(struct can_frame));
-        if (nbytes > 0 && frame.can_id == PLATFORM_TX) {
-            can_frame_t* cf = (can_frame_t*)frame.data;
-            *code = cf->code;
-            *param = cf->val;
-            return 1;
-        } else if (nbytes < 0) {
-            break;
+        FD_ZERO(&readfds);
+        FD_SET(mgr->sockFd, &readfds);
+
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+
+        int activity = select(mgr->sockFd + 1, &readfds, NULL, NULL, &timeout);
+        if (activity > 0 && FD_ISSET(mgr->sockFd, &readfds)) {
+            ssize_t nbytes = read(mgr->sockFd, &frame, sizeof(struct can_frame));
+            if (nbytes > 0 && frame.can_id == PLATFORM_TX) {
+                can_frame_t* cf = (can_frame_t*)frame.data;
+                *code = cf->code;
+                *param = cf->val;
+                return 1;
+            } else if (nbytes < 0) {
+                break;
+            }
         }
         usleep(1000);
     }
@@ -207,13 +209,6 @@ uint32_t CanManager_GetFirmwareVersion(CanManager* mgr) {
         pthread_mutex_unlock(&mgr->criticalSection);
         appendLog(mgr, "CAN disconnected, please reconnect");
         return 0;
-    }
-
-    // Virtual CAN mode: return simulated version
-    if (mgr->isVirtual) {
-        appendLog(mgr, "Firmware version: v1.0.0 (Virtual CAN)");
-        pthread_mutex_unlock(&mgr->criticalSection);
-        return 0x01000000;
     }
 
     if (mgr->sockFd < 0) {
@@ -269,13 +264,6 @@ int CanManager_BoardReboot(CanManager* mgr) {
         return 0;
     }
 
-    // Virtual CAN mode: simulate reboot
-    if (mgr->isVirtual) {
-        appendLog(mgr, "Virtual board reboot successful");
-        pthread_mutex_unlock(&mgr->criticalSection);
-        return 1;
-    }
-
     if (mgr->sockFd < 0) {
         pthread_mutex_unlock(&mgr->criticalSection);
         appendLog(mgr, "Invalid socket");
@@ -298,82 +286,25 @@ int CanManager_BoardReboot(CanManager* mgr) {
         return 0;
     }
 
-    return 1;
-}
-
-// Virtual CAN firmware upgrade
-static int VirtualCAN_FirmwareUpgrade(CanManager* mgr, const char* fileName) {
-    char logMsg[256];
-    appendLog(mgr, "Virtual CAN mode: Simulating firmware upgrade...");
-
-    // Open source file
-    FILE* srcFile = fopen(fileName, "rb");
-    if (!srcFile) {
-        appendLog(mgr, "Cannot open source firmware file");
-        return 0;
-    }
-
-    // Create output file
-    const char* outputFileName = "virtual_firmware.bin";
-
-    FILE* dstFile = fopen(outputFileName, "wb");
-    if (!dstFile) {
-        fclose(srcFile);
-        appendLog(mgr, "Cannot create output file");
-        return 0;
-    }
-
-    // Get file size
-    fseek(srcFile, 0, SEEK_END);
-    long fileSize = ftell(srcFile);
-    fseek(srcFile, 0, SEEK_SET);
-
-    snprintf(logMsg, sizeof(logMsg), "Starting firmware upgrade, firmware size: %ld bytes", fileSize);
-    appendLog(mgr, logMsg);
-    appendLog(mgr, "Output file: virtual_firmware.bin");
-
-    // Simulate Flash erase
-    Sleep_ms(500);
-    appendLog(mgr, "Flash erase completed");
-
-    // Copy file and simulate progress
-    unsigned char buffer[4096];
-    size_t bytesRead;
-    long totalBytes = 0;
-
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), srcFile)) > 0) {
-        fwrite(buffer, 1, bytesRead, dstFile);
-        totalBytes += bytesRead;
-
-        // Update progress every 64 bytes
-        if (totalBytes % 64 == 0 || totalBytes == fileSize) {
-            if (mgr->progressCallback) {
-                int percent = (int)(totalBytes * 100 / fileSize);
-                mgr->progressCallback(percent, mgr->progressUserData);
-            }
-            // Simulate some delay
-            if (totalBytes % 1024 == 0) {
-                Sleep_ms(10);
-            }
-        }
-    }
-
-    fclose(srcFile);
-    fclose(dstFile);
-
-    Sleep_ms(200);
-    appendLog(mgr, "Firmware transmission completed");
-    Sleep_ms(200);
-    appendLog(mgr, "Firmware confirmation completed");
-
-    snprintf(logMsg, sizeof(logMsg), "Virtual firmware saved to: %s", outputFileName);
-    appendLog(mgr, logMsg);
-
+    appendLog(mgr, "Board reboot successfully");
     return 1;
 }
 
 // SocketCAN firmware upgrade
-static int SocketCAN_FirmwareUpgrade(CanManager* mgr, const char* fileName, int testMode) {
+int CanManager_FirmwareUpgrade(CanManager* mgr, const char* fileName, int testMode) {
+    if (!mgr || !mgr->initialized) return 0;
+
+    pthread_mutex_lock(&mgr->criticalSection);
+
+    if (!mgr->connected) {
+        pthread_mutex_unlock(&mgr->criticalSection);
+        appendLog(mgr, "CAN disconnected, please reconnect");
+        return 0;
+    }
+
+    pthread_mutex_unlock(&mgr->criticalSection);
+
+
     char logMsg[256];
 
     FILE* file = fopen(fileName, "rb");
@@ -426,12 +357,14 @@ static int SocketCAN_FirmwareUpgrade(CanManager* mgr, const char* fileName, int 
     }
 
     long bytesSent = 0;
+    long len;
     unsigned char buffer[8];
 
     frame.can_id = FW_DATA_RX;
-    while ((bytesSent = fread(buffer, 1, 8, file)) > 0) {
-        frame.can_dlc = bytesSent;
-        memcpy(frame.data, buffer, bytesSent);
+    while ((len = fread(buffer, 1, 8, file)) > 0) {
+        frame.can_dlc = len;
+        memcpy(frame.data, buffer, len);
+        bytesSent += len;
 
         if (write(mgr->sockFd, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
             fclose(file);
@@ -442,7 +375,7 @@ static int SocketCAN_FirmwareUpgrade(CanManager* mgr, const char* fileName, int 
         if (bytesSent % 64 == 0 || ftell(file) == fileSize) {
             // Update progress
             if (mgr->progressCallback) {
-                int percent = (int)(ftell(file) * 100 / fileSize);
+                int percent = (int)(bytesSent * 100 / fileSize);
                 mgr->progressCallback(percent, mgr->progressUserData);
             }
 
@@ -452,7 +385,7 @@ static int SocketCAN_FirmwareUpgrade(CanManager* mgr, const char* fileName, int 
                 return 0;
             }
 
-            if (code == FW_CODE_UPDATE_SUCCESS && offset == (uint32_t)ftell(file)) break;
+            if (code == FW_CODE_UPDATE_SUCCESS && offset == fileSize) break;
             if (code != FW_CODE_OFFSET) {
                 fclose(file);
                 snprintf(logMsg, sizeof(logMsg), "Firmware upgrade failed: code(%u), offset(%u)", code, offset);
@@ -491,28 +424,6 @@ static int SocketCAN_FirmwareUpgrade(CanManager* mgr, const char* fileName, int 
     }
 
     return 0;
-}
-
-// Firmware upgrade (main dispatch function)
-int CanManager_FirmwareUpgrade(CanManager* mgr, const char* fileName, int testMode) {
-    if (!mgr || !mgr->initialized) return 0;
-
-    pthread_mutex_lock(&mgr->criticalSection);
-
-    if (!mgr->connected) {
-        pthread_mutex_unlock(&mgr->criticalSection);
-        appendLog(mgr, "CAN disconnected, please reconnect");
-        return 0;
-    }
-
-    pthread_mutex_unlock(&mgr->criticalSection);
-
-    // Select upgrade method based on channel type
-    if (mgr->isVirtual) {
-        return VirtualCAN_FirmwareUpgrade(mgr, fileName);
-    } else {
-        return SocketCAN_FirmwareUpgrade(mgr, fileName, testMode);
-    }
 }
 
 // Detect devices (check for available CAN interfaces)
