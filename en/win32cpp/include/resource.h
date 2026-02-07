@@ -7,13 +7,16 @@
 
 // main dialog
 #define IDD_MAIN                        201
+#define IDD_ABOUT                       202
 
 // Menu
-#define IDR_MAINMENU                    202
-#define IDM_FILE_OPEN                   203
-#define IDM_FILE_EXIT                   204
-#define IDM_EDIT_CLEARLOG               205
-#define IDM_HELP_ABOUT                  206
+#define IDR_MAINMENU                    203
+#define IDM_FILE_OPEN                   204
+#define IDM_FILE_EXIT                   205
+#define IDM_EDIT_CLEARLOG               206
+#define IDM_EDIT_TRANSPORT_CAN          207
+#define IDM_EDIT_TRANSPORT_UART         208
+#define IDM_HELP_ABOUT                  209
 
 // Controls
 #define IDC_COMBO_CHANNEL               301
@@ -24,13 +27,14 @@
 #define IDC_BUTTON_BROWSE               306
 #define IDC_CHECK_TESTMODE              307
 #define IDC_PROGRESS                    308
-#define IDC_LABEL_PERCENT               309
-#define IDC_BUTTON_FLASH                310
-#define IDC_LABEL_VERSION               311
-#define IDC_BUTTON_GETVERSION           312
-#define IDC_BUTTON_REBOOT               313
-#define IDC_EDIT_LOG                    314
-#define IDC_BUTTON_CLEAR_LOG            315
+#define IDC_BUTTON_FLASH                309
+#define IDC_LABEL_VERSION               310
+#define IDC_BUTTON_GETVERSION           311
+#define IDC_BUTTON_REBOOT               312
+#define IDC_EDIT_LOG                    313
+#define IDC_BUTTON_CLEAR_LOG            314
+#define IDC_LABEL_PERCENT               315
+#define IDC_COMBO_UART_BAUDRATE         316
 
 // Timer IDs
 #define ID_TIMER_RESPONSE               401

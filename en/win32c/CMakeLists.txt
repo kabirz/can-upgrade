@@ -2,61 +2,64 @@ cmake_minimum_required(VERSION 3.25)
 
 project(CANUpgradeTool VERSION 1.0.0 LANGUAGES C)
 
-# 启用 Unicode 支持
+# Enable Unicode support
 add_compile_definitions(UNICODE _UNICODE)
 
-# 源文件
+# Source files
 set(SOURCES
     src/main.c
     src/can_manager.c
+    src/uart_manager.c
 )
 
-# 资源文件
+# Resource files
 set(RESOURCES
     resources/resource.rc
 )
 
-# 创建可执行文件
+# Create executable
 add_executable(can-upgrade
     ${SOURCES}
     ${RESOURCES}
 )
 
-# 编译优化选项以减小可执行文件体积
+# Compile optimization options to reduce executable size
 if(MINGW)
     target_compile_options(can-upgrade PRIVATE
-        -Os                    # 优化代码大小
-        -ffunction-sections    # 将函数放入独立段
-        -fdata-sections        # 将数据放入独立段
+        -Os                    # Optimize code size
+        -ffunction-sections    # Place functions in independent sections
+        -fdata-sections        # Place data in independent sections
     )
     target_link_options(can-upgrade PRIVATE
-        -mwindows              # Windows GUI 应用程序
-        -static-libgcc         # 静态链接 libgcc
-        -s                     # 去除符号
-        -Wl,--gc-sections      # 删除未使用的段
-        -Wl,--strip-all        # 去除所有符号
+        -mwindows              # Windows GUI application
+        -static-libgcc         # Statically link libgcc
+        -s                     # Remove symbols
+        -Wl,--gc-sections      # Remove unused sections
+        -Wl,--strip-all        # Remove all symbols
     )
 elseif(MSVC)
-    # 支持 UTF-8 编码的源文件
+    # Support UTF-8 encoded source files
     target_compile_options(can-upgrade PRIVATE /utf-8)
-    # Windows GUI 应用程序入口点为 WinMain
+    # Windows GUI application entry point is WinMain
     set_target_properties(can-upgrade PROPERTIES
         LINK_FLAGS "/SUBSYSTEM:WINDOWS"
     )
 endif()
 
-# 链接 Windows 系统库
+# Link Windows system libraries
 if(MINGW)
     target_link_libraries(can-upgrade PRIVATE
-        -lcomctl32    # 通用控件库（进度条）
-        -lcomdlg32    # 通用对话框库（文件选择）
-        -lgdi32       # GDI 图形设备接口
+        -lcomctl32    # Common controls library (progress bar)
+        -lcomdlg32    # Common dialog library (file selection)
+        -lgdi32       # GDI graphics device interface
+        -lsetupapi    # SetupAPI (serial port enumeration)
     )
 elseif(MSVC)
     target_link_libraries(can-upgrade PRIVATE
-        comctl32      # 通用控件库（进度条）
-        comdlg32      # 通用对话框库（文件选择）
-        gdi32         # GDI 图形设备接口
+        comctl32      # Common controls library (progress bar)
+        comdlg32      # Common dialog library (file selection)
+        gdi32         # GDI graphics device interface
+        setupapi      # SetupAPI (serial port enumeration)
     )
 endif()
 

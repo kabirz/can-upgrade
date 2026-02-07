@@ -1,25 +1,35 @@
-# CAN Firmware Upgrade Tool (C++ Version)
+# Firmware Upgrade Tool (C++ Version)
 
-A pure C++20 implementation of CAN firmware upgrade tool for upgrading board firmware via PCAN interface.
+Pure C++20 implementation of a firmware upgrade tool supporting **CAN/UART dual-bus** communication for upgrading board firmware via PCAN interface or serial port.
 
 ## Features
+
+- **Dual Transport Mode Support**
+  - CAN Bus Mode: Firmware upgrade via PCAN-USB interface
+  - UART Serial Mode: Firmware upgrade via serial port
+  - Quick transport mode switching via menu bar
 
 - **CAN Device Connection Management**
   - Auto-detect PCAN-USB devices (up to 16)
   - Support multiple baud rates (10K - 1M)
   - Connect/disconnect device management
 
-- **Virtual CAN Support (Test Mode)**
-  - Test GUI without hardware
-  - Simulate firmware upgrade and save to file (`virtual_firmware.bin`)
-  - Simulate version query and board reboot
-  - Automatically shown at end of device list (after all real devices)
+- **UART Serial Connection Management**
+  - Fast serial port enumeration (using SetupAPI)
+  - Support multiple baud rates (9600 - 921600)
+  - Auto-filter Bluetooth virtual serial ports
+  - Non-blocking I/O for fast firmware transfer
 
-- **Firmware Upgrade Function**
+- **Virtual CAN Support (Test Mode)**
+  - Test GUI functionality without hardware
+  - Simulate firmware upgrade process and save to file (`virtual_firmware.bin`)
+  - Simulate version query and board reboot
+  - Automatically displayed at end of device list (after all real devices)
+
+- **Firmware Upgrade Features**
   - Read .bin firmware files
-  - Send firmware data via CAN bus
-  - Real-time progress bar and percentage display
-  - Support test mode (restore original firmware after second reboot)
+  - Real-time progress bar and percentage display (0% - 100%)
+  - Support test mode (restores original firmware after second reboot)
 
 - **Board Commands**
   - Get firmware version
@@ -28,8 +38,8 @@ A pure C++20 implementation of CAN firmware upgrade tool for upgrading board fir
 - **GUI Interface**
   - Windows native dialog interface
   - Real-time log display
-  - Progress bar for upgrade progress
-  - Percentage value display (0% - 100%)
+  - Progress bar showing upgrade progress
+  - Percentage value display
 
 ## Directory Structure
 
@@ -37,19 +47,21 @@ A pure C++20 implementation of CAN firmware upgrade tool for upgrading board fir
 win32cpp/
 ├── include/            # Header files
 │   ├── can_manager.h   # CAN manager interface
+│   ├── uart_manager.h  # UART manager interface
 │   ├── resource.h      # Resource ID definitions
 │   └── PCANBasic.h     # PCAN-Basic API
 ├── src/                # Source files
 │   ├── main.cpp        # Main program and GUI logic
-│   └── can_manager.cpp # CAN communication management implementation
+│   ├── can_manager.cpp # CAN communication management implementation
+│   └── uart_manager.cpp # UART communication management implementation
 ├── resources/          # Resource files
 │   ├── resource.rc     # Windows resource script
 │   └── icon.ico        # Application icon
-├── libs/               # External libraries directory
+├── libs/               # External library directory
 │   └── x64/            # 64-bit libraries
 │       └── PCANBasic.lib  # PCAN-Basic static library (import library)
 ├── CMakeLists.txt      # CMake build configuration
-├── CMakePresets.json   # CMake presets configuration
+├── CMakePresets.json   # CMake preset configuration
 └── README.md           # Project documentation
 ```
 
@@ -57,18 +69,18 @@ win32cpp/
 
 ### Method 1: Windows Native Build (Visual Studio)
 
-**Requirements:**
+**Environment Requirements**:
 - Windows 10/11
-- Visual Studio 2019 or later (C++20 support required, CMake auto-detects)
+- Visual Studio 2019 or higher (requires C++20 support, CMake auto-detects)
 - CMake (>= 3.20)
 
-**One-click build:**
+**One-click Build**:
 ```powershell
 # Run in x64 Native Tools Command Prompt or PowerShell
 cmake --workflow --preset vs-release
 ```
 
-**Manual build:**
+**Manual Build**:
 ```powershell
 # 1. Configure project (auto-detect VS version)
 cmake --preset vs
@@ -77,18 +89,18 @@ cmake --preset vs
 cmake --build out --config Release
 ```
 
-**Build output:**
+**Build Output**:
 ```
 out/Release/can-upgrade.exe
 ```
 
-### Method 2: Cross-compilation (Linux builds Windows programs)
+### Method 2: Cross-compilation (Linux Compiling Windows Programs)
 
-**Requirements:**
+**Environment Requirements**:
 - Ubuntu/Debian/Arch Linux
-- MinGW-w64 cross-compiler toolchain (C++20 support)
+- MinGW-w64 cross-compilation toolchain (with C++20 support)
 
-**Install dependencies:**
+**Install Dependencies**:
 ```bash
 # Ubuntu/Debian
 sudo apt install gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 cmake ninja-build
@@ -97,12 +109,12 @@ sudo apt install gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 cmake ninja-build
 sudo pacman -S mingw-w64-gcc cmake ninja
 ```
 
-**One-click build:**
+**One-click Build**:
 ```bash
 cmake --workflow --preset release
 ```
 
-**Manual build:**
+**Manual Build**:
 ```bash
 # 1. Configure project
 cmake --preset default
@@ -111,7 +123,7 @@ cmake --preset default
 cmake --build build --config Release
 ```
 
-**Build output:**
+**Build Output**:
 ```
 build/can-upgrade.exe
 ```
@@ -120,22 +132,22 @@ build/can-upgrade.exe
 
 | Feature | Visual Studio | MinGW Cross-compilation |
 |---------|--------------|-------------------------|
-| Build environment | Windows | Linux |
-| C++ standard | C++20 | C++20 |
-| Executable size | ~34 KB | ~121 KB |
+| Build Environment | Windows | Linux |
+| C++ Standard | C++20 | C++20 |
+| Executable Size | ~34 KB | ~121 KB |
 | Compiler | MSVC | GCC |
-| Linking | Dynamic link system runtime | Static link libgcc/libstdc++ |
-| Debug support | Excellent | Good |
+| Linking Method | Dynamically link system runtime | Statically link libgcc/libstdc++ |
+| Debug Support | Excellent | Good |
 
-**Note:** MinGW compiled files are larger mainly because static linking of `libgcc` and `libstdc++`, allowing the program to run directly on systems without MinGW runtime.
+**Note**: MinGW compiled files are larger mainly because libgcc and libstdc++ are statically linked, allowing the program to run directly on systems without MinGW runtime installed.
 
 ## Project Dependencies
 
 ### External Dependencies
 
 | Dependency | Version/Type | Purpose |
-|------------|-------------|---------|
-| PCANBasic.lib | x64 static library | PEAK-System PCAN-Basic API for CAN bus communication |
+|-----------|-------------|---------|
+| PCANBasic.lib | x64 Static Library | PEAK-System PCAN-Basic API for CAN bus communication |
 
 ### System Libraries (Windows)
 
@@ -143,9 +155,10 @@ build/can-upgrade.exe
 |---------|---------|
 | comctl32 | Common controls library (progress bar) |
 | comdlg32 | Common dialog library (file selection) |
-| gdi32 | GDI graphics device interface |
+| gdi32 | GDI Graphics Device Interface |
+| setupapi | Serial port device enumeration (UART mode) |
 
-### Build Requirements
+### Compilation Requirements
 
 - **C++ Standard**: C++20 (uses designated initializers and other features)
 - **Character Set**: Unicode
@@ -156,54 +169,56 @@ build/can-upgrade.exe
 
 | Compiler | Executable Size | Description |
 |----------|----------------|-------------|
-| MSVC (VS2022) | ~34 KB | Windows native build, smallest size |
+| MSVC (VS2022) | ~34 KB | Windows native build, minimum size |
 | MinGW GCC | ~121 KB | Linux cross-compilation |
-| C version (win32c) | ~30 KB | Same functionality C implementation |
+| C Version (win32c) | ~30 KB | C implementation with same functionality |
 
 ### MSVC Version Detailed Analysis
 
-**File size**: 33,792 bytes ≈ 34 KB
+**File Size**: 33,792 bytes ≈ 34 KB
 
-**Section structure composition**:
+**Section Structure**:
 
-| Section | Description | File占用 |
-|---------|-------------|----------|
+| Section | Description | File Usage |
+|---------|-------------|------------|
 | .text | Code segment | ~12 KB |
 | .rdata | Read-only data (constants, strings) | ~12 KB |
 | .rsrc | Resources (icons, menus, dialogs) | ~12 KB |
-| .data | Read-write data (global variables) | ~4 KB |
+| .data | Read/write data (global variables) | ~4 KB |
 | .pdata | Exception handling table | ~4 KB |
 | .reloc | Relocation table | ~4 KB |
 
 ### Runtime Dependencies
 
-**Windows 10/11:**
-- Only need to install **PCAN-Driver** to run
+**Windows 10/11**:
+- Only **PCAN-Driver** needs to be installed
 
-**Windows 7/8.1:**
+**Windows 7/8.1**:
 - PCAN-Driver
 - Microsoft Visual C++ 2015-2022 Redistributable (x64)
 
-### Size Optimization Suggestions
+### Size Optimization Recommendations
 
 To further reduce size, consider:
 
-1. **UPX compression** (can reduce to 15-20 KB):
+1. **UPX Compression** (can reduce to 15-20 KB):
    ```bash
    upx --best --lzma can-upgrade.exe
    ```
 
-2. **Remove unused resources:**
-   - Delete unnecessary icons or dialogs
+2. **Remove Unused Resources**:
+   - Delete unneeded icons or dialogs
    - Use smaller icon files
 
-3. **Merge strings:**
+3. **Merge Strings**:
    - Extract duplicate strings as constants
    - Use more concise error messages
 
-## CAN Communication Protocol
+## Communication Protocol
 
-### CAN ID Definitions
+### CAN Protocol
+
+#### CAN ID Definitions
 
 | CAN ID | Direction | Description |
 |--------|-----------|-------------|
@@ -211,7 +226,39 @@ To further reduce size, consider:
 | 0x102 | Board → PC | Platform response (PLATFORM_TX) |
 | 0x103 | PC → Board | Firmware data (FW_DATA_RX) |
 
+#### Frame Format
+
+CAN data frame uses standard 8-byte data format:
+
+```cpp
+struct CanFrame {
+    uint32_t code;   // Command code/response code (little-endian)
+    uint32_t val;    // Parameter value (little-endian)
+};
+```
+
+### UART Protocol
+
+#### Frame Format
+
+UART uses custom frame format with header, type, length, data, and checksum:
+
+| Field | Bytes | Description |
+|-------|-------|-------------|
+| Header | 1 | Fixed 0xAA |
+| Type | 1 | 0x01=Command, 0x02=Data |
+| Length | 2 | Data length (big-endian) |
+| Data | 0-8 | Valid data |
+| CRC16 | 2 | CRC16-CCITT (big-endian) |
+| Tail | 1 | Fixed 0x55 |
+
+#### CRC16 Algorithm
+
+Uses CRC16-CCITT algorithm (polynomial 0xA001, initial value 0xFFFF).
+
 ### Board Commands
+
+Both transport modes use the same command codes:
 
 | Command Code | Name | Description |
 |--------------|------|-------------|
@@ -233,16 +280,17 @@ To further reduce size, consider:
 
 ## Comparison with win32c Project
 
-| Feature | win32cpp (C++) | win32c (C, MSVC) |
-|---------|---------------|-------------------|
-| Language | C++20 | C |
-| exe size | ~34 KB | ~30 KB |
-| Compiler | MSVC | MSVC |
-| Synchronization | CRITICAL_SECTION | CRITICAL_SECTION |
-| Container | Fixed array | Fixed array |
-| Memory management | new/delete | malloc/free |
-| Interface | Class member functions | Opaque handle + functions |
-| Code style | Modern C++ | Traditional C |
+| Feature | win32cpp (C++, MSVC) | win32cpp (C++, MinGW) | win32c (C, MSVC) | win32c (C, MinGW) |
+|---------|-------------------|-------------------|-------------------|-------------------|
+| Language | C++20 | C++20 | C | C |
+| exe size | ~34 KB | ~121 KB | ~30 KB | ~121 KB |
+| Compiler | MSVC | GCC | MSVC | GCC |
+| Transport Mode | CAN/UART | CAN/UART | CAN/UART | CAN/UART |
+| Synchronization | CRITICAL_SECTION | CRITICAL_SECTION | CRITICAL_SECTION | CRITICAL_SECTION |
+| Container | Fixed array | Fixed array | Fixed array | Fixed array |
+| Memory management | new/delete | new/delete | malloc/free | malloc/free |
+| Interface | Class member functions | Class member functions | Opaque handle + functions | Opaque handle + functions |
+| Code style | Modern C++ | Modern C++ | Traditional C | Traditional C |
 
 ## License
 

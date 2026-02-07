@@ -1,13 +1,24 @@
-# CAN Firmware Upgrade Tool (C Language Version)
+# Firmware Upgrade Tool (C Language Version)
 
-Pure C language implementation of a CAN firmware upgrade tool for upgrading board firmware via PCAN interface.
+Pure C language implementation of a firmware upgrade tool supporting **CAN/UART dual-bus** communication for upgrading board firmware via PCAN interface or serial port.
 
 ## Features
+
+- **Dual Transport Mode Support**
+  - CAN Bus Mode: Firmware upgrade via PCAN-USB interface
+  - UART Serial Mode: Firmware upgrade via serial port
+  - Quick transport mode switching via menu bar
 
 - **CAN Device Connection Management**
   - Auto-detect PCAN-USB devices (up to 16)
   - Support multiple baud rates (10K - 1M)
   - Connect/disconnect device management
+
+- **UART Serial Connection Management**
+  - Fast serial port enumeration (using SetupAPI)
+  - Support multiple baud rates (9600 - 921600)
+  - Auto-filter Bluetooth virtual serial ports
+  - Non-blocking I/O for fast firmware transfer
 
 - **Virtual CAN Support (Test Mode)**
   - Test GUI functionality without hardware
@@ -17,8 +28,7 @@ Pure C language implementation of a CAN firmware upgrade tool for upgrading boar
 
 - **Firmware Upgrade Features**
   - Read .bin firmware files
-  - Send firmware data via CAN bus
-  - Real-time progress bar and percentage display
+  - Real-time progress bar and percentage display (0% - 100%)
   - Support test mode (restores original firmware after second reboot)
 
 - **Board Commands**
@@ -29,7 +39,7 @@ Pure C language implementation of a CAN firmware upgrade tool for upgrading boar
   - Windows native dialog interface
   - Real-time log display
   - Progress bar showing upgrade progress
-  - Percentage value display (0% - 100%)
+  - Percentage value display
 
 ## Directory Structure
 
@@ -37,11 +47,13 @@ Pure C language implementation of a CAN firmware upgrade tool for upgrading boar
 win32c/
 ├── include/            # Header files
 │   ├── can_manager.h   # CAN manager interface
+│   ├── uart_manager.h  # UART manager interface
 │   ├── resource.h      # Resource ID definitions
 │   └── PCANBasic.h     # PCAN-Basic API
 ├── src/                # Source files
 │   ├── main.c          # Main program and GUI logic
-│   └── can_manager.c   # CAN communication management implementation
+│   ├── can_manager.c   # CAN communication management implementation
+│   └── uart_manager.c  # UART communication management implementation
 ├── resources/          # Resource files
 │   ├── resource.rc     # Windows resource script
 │   └── icon.ico        # Application icon
@@ -126,7 +138,7 @@ build/can-upgrade.exe
 | Linking Method | Dynamically link system runtime | Statically link libgcc |
 | Debug Support | Excellent | Good |
 
-**Note**: MinGW compiled files are larger mainly because libgcc and C runtime library are statically linked, allowing the program to run directly on systems without MinGW runtime installed.
+**Note**: MinGW compiled files are larger mainly because libgcc is statically linked, allowing the program to run directly on systems without MinGW runtime installed.
 
 ## Project Dependencies
 
@@ -143,6 +155,7 @@ build/can-upgrade.exe
 | comctl32 | Common controls library (progress bar) |
 | comdlg32 | Common dialog library (file selection) |
 | gdi32 | GDI Graphics Device Interface |
+| setupapi | Serial port device enumeration (UART mode) |
 
 ### Compiler Optimization Options
 
@@ -156,65 +169,11 @@ build/can-upgrade.exe
 | `-s` / `--strip-all` | Remove symbol table, reduce file size |
 | `--gc-sections` | Remove unused sections |
 
-## Binary File Size Analysis
+## Communication Protocol
 
-### Size Optimization Results
+### CAN Protocol
 
-| Compiler | Executable Size | Description |
-|----------|----------------|-------------|
-| MSVC (VS2022) | ~30 KB | Windows native build, minimum size |
-| MinGW GCC | ~121 KB | Linux cross-compilation |
-| C++ Version (win32cpp) | MSVC: ~34 KB / MinGW: ~121 KB | C++ implementation with same functionality |
-
-### MSVC Version Detailed Analysis
-
-**File Size**: 30,720 bytes ≈ 30 KB
-
-**Section Structure**:
-
-| Section | Description | File Usage | Memory Usage |
-|---------|-------------|------------|--------------|
-| .text | Code segment | 9,728 B | 9,708 B |
-| .rdata | Read-only data (constants, strings) | 7,168 B | 6,812 B |
-| .rsrc | Resources (icons, menus, dialogs) | 9,728 B | 9,352 B |
-| .pdata | Exception handling table | 1,024 B | 624 B |
-| .data | Read/write data (global variables) | 512 B | 400 B |
-| .reloc | Relocation table | 512 B | 68 B |
-
-**Memory Usage**:
-- **Runtime Image**: 48 KB
-- **Stack Space**: Reserved 1 MB / Actual 4 KB
-- **Heap Space**: Reserved 1 MB / Actual 4 KB
-
-### Runtime Dependencies
-
-**Windows 10/11**:
-- Only **PCAN-Driver** needs to be installed
-
-**Windows 7/8.1**:
-- PCAN-Driver
-- Microsoft Visual C++ 2015-2022 Redistributable (x64)
-
-### Size Optimization Recommendations
-
-To further reduce size, consider:
-
-1. **UPX Compression** (can reduce to 15-20 KB):
-   ```bash
-   upx --best --lzma can-upgrade.exe
-   ```
-
-2. **Remove Unused Resources**:
-   - Delete unneeded icons or dialogs
-   - Use smaller icon files
-
-3. **Merge Strings**:
-   - Extract duplicate strings as constants
-   - Use more concise error messages
-
-## CAN Communication Protocol
-
-### CAN ID Definitions
+#### CAN ID Definitions
 
 | CAN ID | Direction | Description |
 |--------|-----------|-------------|
@@ -222,7 +181,39 @@ To further reduce size, consider:
 | 0x102 | Board → PC | Platform response (PLATFORM_TX) |
 | 0x103 | PC → Board | Firmware data (FW_DATA_RX) |
 
+#### Frame Format
+
+CAN data frame uses standard 8-byte data format:
+
+```c
+typedef struct {
+    uint32_t code;   // Command code/response code (little-endian)
+    uint32_t val;    // Parameter value (little-endian)
+} can_frame_t;
+```
+
+### UART Protocol
+
+#### Frame Format
+
+UART uses custom frame format with header, type, length, data, and checksum:
+
+| Field | Bytes | Description |
+|-------|-------|-------------|
+| Header | 1 | Fixed 0xAA |
+| Type | 1 | 0x01=Command, 0x02=Data |
+| Length | 2 | Data length (big-endian) |
+| Data | 0-8 | Valid data |
+| CRC16 | 2 | CRC16-CCITT (big-endian) |
+| Tail | 1 | Fixed 0x55 |
+
+#### CRC16 Algorithm
+
+Uses CRC16-CCITT algorithm (polynomial 0xA001, initial value 0xFFFF).
+
 ### Board Commands
+
+Both transport modes use the same command codes:
 
 | Command Code | Name | Description |
 |--------------|------|-------------|
@@ -244,16 +235,16 @@ To further reduce size, consider:
 
 ## Comparison with win32cpp Project
 
-| Feature | win32cpp (C++, MSVC) | win32c (C, MSVC) |
-|---------|---------------|-------------------|
-| Language | C++20 | C |
-| exe size | ~34 KB | ~30 KB |
-| Compiler | MSVC | MSVC |
-| Synchronization | CRITICAL_SECTION | CRITICAL_SECTION |
-| Container | Fixed array | Fixed array |
-| Memory management | new/delete | malloc/free |
-| Interface | Class member functions | Opaque handle + functions |
-| Code style | Modern C++ | Traditional C |
+| Feature | win32cpp (C++, MSVC) | win32cpp (C++, MinGW) | win32c (C, MinGW) | win32c (C, MSVC) |
+|---------|-------------------|-------------------|-------------------|-------------------|
+| Language | C++ | C++ | C | C |
+| exe size | ~34KB | ~121KB | ~121KB | ~30KB |
+| Compiler | MSVC | GCC | GCC | MSVC |
+| Transport Mode | CAN/UART | CAN/UART | CAN/UART | CAN/UART |
+| Synchronization | CRITICAL_SECTION | CRITICAL_SECTION | CRITICAL_SECTION | CRITICAL_SECTION |
+| Container | Fixed array | Fixed array | Fixed array | Fixed array |
+| Memory management | new/delete | new/delete | malloc/free | malloc/free |
+| Interface | Class member functions | Class member functions | Opaque handle + functions | Opaque handle + functions |
 
 ## License
 

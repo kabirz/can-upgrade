@@ -6,6 +6,11 @@
 #include <string.h>
 #include "resource.h"
 #include "can_manager.h"
+#include "uart_manager.h"
+
+// Transport mode
+#define TRANSPORT_MODE_CAN    0
+#define TRANSPORT_MODE_UART   1
 
 // Custom messages
 #define WM_UPDATE_PROGRESS    (WM_APP + 1)
@@ -15,9 +20,11 @@ static HWND hLog;
 static int isConnected = 0;
 static int isUpdating = 0;
 static HWND hUpdatingDialog = NULL;
+static int transportMode = TRANSPORT_MODE_CAN;  // Current transport mode
 
 // Progress callback
 static CanManager* g_canManager = NULL;
+static UartManager* g_uartManager = NULL;
 
 // Progress update callback function
 static void OnProgressUpdate(int percent) {
@@ -58,7 +65,19 @@ static const wchar_t* baudNames[] = {
 static TPCANHandle g_channels[MAX_DEVICES];
 static int g_channelCount = 0;
 
-// Append log
+// UART serial port info array
+static SerialPortInfo g_serialPorts[MAX_SERIAL_PORTS];
+static int g_serialPortCount = 0;
+
+// UART baud rate configuration
+static const DWORD UART_BAUD_RATES[] = {
+    9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600
+};
+static const wchar_t* uartBaudNames[] = {
+    L"9600", L"19200", L"38400", L"57600", L"115200", L"230400", L"460800", L"921600"
+};
+
+// Add log
 void AppendLog(const char* msg) {
     if (!hLog) return;
 
@@ -89,8 +108,14 @@ DWORD WINAPI FirmwareUpdateThread(LPVOID lpParam) {
 
     hUpdatingDialog = params->hwnd;
 
-    CanManager_SetProgressCallback(g_canManager, OnProgressUpdate);
-    int success = CanManager_FirmwareUpgrade(g_canManager, params->fileName, params->testMode);
+    int success = 0;
+    if (transportMode == TRANSPORT_MODE_CAN) {
+        CanManager_SetProgressCallback(g_canManager, OnProgressUpdate);
+        success = CanManager_FirmwareUpgrade(g_canManager, params->fileName, params->testMode);
+    } else {
+        UartManager_SetProgressCallback(g_uartManager, OnProgressUpdate);
+        success = UartManager_FirmwareUpgrade(g_uartManager, params->fileName, params->testMode);
+    }
     PostMessage(params->hwnd, WM_UPDATE_COMPLETE, success, 0);
 
     hUpdatingDialog = NULL;
@@ -100,29 +125,69 @@ DWORD WINAPI FirmwareUpdateThread(LPVOID lpParam) {
 
 // Get device list
 void getDeviceList(HWND hwnd) {
-    wchar_t buf[64];
+    wchar_t buf[128];
     HWND hChannel = GetDlgItem(hwnd, IDC_COMBO_CHANNEL);
-    CanManager_SetCallback(g_canManager, AppendLog);
 
     SendMessage(hChannel, CB_RESETCONTENT, 0, 0);
 
-    // Detect real CAN devices
-    g_channelCount = CanManager_DetectDevice(g_canManager, g_channels, MAX_DEVICES);
+    if (transportMode == TRANSPORT_MODE_CAN) {
+        CanManager_SetCallback(g_canManager, AppendLog);
 
-    // Add real devices to list
-    for (int i = 0; i < g_channelCount; i++) {
-        wsprintfW(buf, L"PCAN-USB: %xh", g_channels[i]);
-        SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)buf);
+        // Detect real CAN devices
+        g_channelCount = CanManager_DetectDevice(g_canManager, g_channels, MAX_DEVICES);
+
+        // Add real devices to list
+        for (int i = 0; i < g_channelCount; i++) {
+            wsprintfW(buf, L"PCAN-USB: %xh", g_channels[i]);
+            SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)buf);
+        }
+
+        // Add virtual CAN to end of list
+        if (g_channelCount < MAX_DEVICES) {
+            SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)L"Virtual CAN (Test Mode)");
+            g_channels[g_channelCount] = VIRTUAL_CAN_CHANNEL;
+            g_channelCount++;
+        }
+    } else {
+        // UART mode
+        UartManager_SetCallback(g_uartManager, AppendLog);
+        g_serialPortCount = UartManager_EnumPorts(g_uartManager, g_serialPorts, MAX_SERIAL_PORTS);
+
+        for (int i = 0; i < g_serialPortCount; i++) {
+            MultiByteToWideChar(CP_UTF8, 0, g_serialPorts[i].friendlyName, -1, buf, 128);
+            SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)buf);
+        }
     }
 
-    // Add virtual CAN to the end of list
-    if (g_channelCount < MAX_DEVICES) {
-        SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)L"Virtual CAN (Test Mode)");
-        g_channels[g_channelCount] = VIRTUAL_CAN_CHANNEL;
-        g_channelCount++;
+    if (SendMessage(hChannel, CB_GETCOUNT, 0, 0) > 0) {
+        SendMessage(hChannel, CB_SETCURSEL, 0, 0);
     }
+}
 
-    SendMessage(hChannel, CB_SETCURSEL, 0, 0);
+// Update transport mode UI
+void UpdateTransportModeUI(HWND hwnd) {
+    HWND hBaudRate = GetDlgItem(hwnd, IDC_COMBO_BAUDRATE);
+    HWND hUartBaudRate = GetDlgItem(hwnd, IDC_COMBO_UART_BAUDRATE);
+    HWND hRefresh = GetDlgItem(hwnd, IDC_BUTTON_REFRESH);
+
+    if (transportMode == TRANSPORT_MODE_CAN) {
+        // CAN mode
+        ShowWindow(hBaudRate, SW_SHOW);
+        ShowWindow(hUartBaudRate, SW_HIDE);
+    } else {
+        // UART mode
+        ShowWindow(hBaudRate, SW_HIDE);
+        ShowWindow(hUartBaudRate, SW_SHOW);
+    }
+    EnableWindow(hRefresh, !isConnected);  // Both modes support refresh
+
+    // Update menu item check state
+    CheckMenuRadioItem(GetMenu(hwnd), IDM_EDIT_TRANSPORT_CAN, IDM_EDIT_TRANSPORT_UART,
+                       transportMode == TRANSPORT_MODE_UART ? IDM_EDIT_TRANSPORT_UART : IDM_EDIT_TRANSPORT_CAN,
+                       MF_BYCOMMAND);
+
+    // Refresh device list
+    getDeviceList(hwnd);
 }
 
 // Dialog procedure function
@@ -134,30 +199,38 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
             SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 
-            // Initialize baud rate combo box
+            // Initialize CAN baud rate dropdown
             HWND hBaudRate = GetDlgItem(hwnd, IDC_COMBO_BAUDRATE);
             for (int i = 0; i < 8; i++) {
                 SendMessage(hBaudRate, CB_ADDSTRING, 0, (LPARAM)baudNames[i]);
             }
             SendMessage(hBaudRate, CB_SETCURSEL, 5, 0);  // Default 250K
 
+            // Initialize UART baud rate dropdown
+            HWND hUartBaudRate = GetDlgItem(hwnd, IDC_COMBO_UART_BAUDRATE);
+            for (int i = 0; i < 8; i++) {
+                SendMessage(hUartBaudRate, CB_ADDSTRING, 0, (LPARAM)uartBaudNames[i]);
+            }
+            SendMessage(hUartBaudRate, CB_SETCURSEL, 4, 0);  // Default 115200
+
             // Initialize progress bar
             HWND hProgress = GetDlgItem(hwnd, IDC_PROGRESS);
             SendMessage(hProgress, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
             SendMessage(hProgress, PBM_SETPOS, 0, 0);
 
-            // Initialize button states
+            // Initialize button state
             EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_FLASH), FALSE);
             EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_GETVERSION), FALSE);
             EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REBOOT), FALSE);
 
             hLog = GetDlgItem(hwnd, IDC_EDIT_LOG);
 
-            // Update flash button state
+            // Update start upgrade button state
             UpdateFlashButtonState(hwnd);
 
-            // Get device list
-            getDeviceList(hwnd);
+            // Initialize transport mode UI
+            UpdateTransportModeUI(hwnd);
+
             return TRUE;
         }
 
@@ -193,12 +266,14 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
                 case IDM_HELP_ABOUT:
                     MessageBoxW(hwnd,
-                        L"CAN Firmware Upgrade Tool v1.0\n\n"
-                        L"Upgrade board firmware via PCAN interface\n\n"
+                        L"Firmware Upgrade Tool v1.1\n\n"
+                        L"CAN/UART Dual-Bus Firmware Upgrade\n\n"
                         L"Features:\n"
-                        L"• Multiple baud rate support\n"
-                        L"• Firmware upgrade and test mode\n"
-                        L"• Version query and board reboot",
+                        L"• CAN bus upgrade (PCAN interface)\n"
+                        L"• UART serial upgrade\n"
+                        L"• Firmware upgrade with test mode\n"
+                        L"• Version query and board reboot\n"
+                        L"• Auto-filter Bluetooth virtual serial ports",
                         L"About",
                         MB_OK | MB_ICONINFORMATION);
                     return TRUE;
@@ -214,62 +289,95 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 case IDC_BUTTON_REFRESH:
                     getDeviceList(hwnd);
                     return TRUE;
+                case IDM_EDIT_TRANSPORT_CAN:
+                case IDM_EDIT_TRANSPORT_UART: {
+                    if (isConnected) {
+                        MessageBoxW(hwnd, L"Please disconnect current connection first", L"Tip", MB_OK | MB_ICONWARNING);
+                        return TRUE;
+                    }
+                    // Switch transport mode
+                    transportMode = (LOWORD(wParam) == IDM_EDIT_TRANSPORT_UART) ? TRANSPORT_MODE_UART : TRANSPORT_MODE_CAN;
+                    UpdateTransportModeUI(hwnd);
+                    return TRUE;
+                }
                 case IDC_BUTTON_CONNECT: {
                     HWND hConnectBtn = GetDlgItem(hwnd, IDC_BUTTON_CONNECT);
                     HWND hChannel = GetDlgItem(hwnd, IDC_COMBO_CHANNEL);
-                    HWND hBaudRate = GetDlgItem(hwnd, IDC_COMBO_BAUDRATE);
 
                     if (isConnected) {
                         // Disconnect
                         EnableWindow(hConnectBtn, FALSE);
-                        CanManager_Disconnect(g_canManager);
+                        if (transportMode == TRANSPORT_MODE_CAN) {
+                            CanManager_Disconnect(g_canManager);
+                        } else {
+                            UartManager_Disconnect(g_uartManager);
+                        }
                         EnableWindow(hConnectBtn, TRUE);
                         isConnected = 0;
                         SetWindowTextW(hConnectBtn, L"Connect");
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_GETVERSION), FALSE);
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REBOOT), FALSE);
                         EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REFRESH), TRUE);
-                        SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), L"Version: Not Retrieved");
+                        SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), L"Version: Not obtained");
                         EnableWindow(hChannel, TRUE);
-                        EnableWindow(hBaudRate, TRUE);
+                        EnableWindow(GetDlgItem(hwnd, IDC_COMBO_BAUDRATE), TRUE);
+                        EnableWindow(GetDlgItem(hwnd, IDC_COMBO_UART_BAUDRATE), TRUE);
                         UpdateFlashButtonState(hwnd);
                         return TRUE;
                     } else {
                         // Connect
-                        int cnl_idx = SendMessage(hChannel, CB_GETCURSEL, 0, 0);
-                        int baud_idx = SendMessage(hBaudRate, CB_GETCURSEL, 0, 0);
-                        EnableWindow(hConnectBtn, FALSE);
-                        if (cnl_idx >= 0 && cnl_idx < g_channelCount && baud_idx >= 0) {
-                            int res = CanManager_Connect(g_canManager, g_channels[cnl_idx], BAUD_RATES[baud_idx]);
-                            if (res) {
-                                isConnected = 1;
-                                EnableWindow(hConnectBtn, TRUE);
-                                SetWindowTextW(hConnectBtn, L"Disconnect");
-                                EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_GETVERSION), TRUE);
-                                EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REBOOT), TRUE);
-                                EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REFRESH), FALSE);
-                                EnableWindow(hChannel, FALSE);
-                                EnableWindow(hBaudRate, FALSE);
-                                UpdateFlashButtonState(hwnd);
-                                return TRUE;
+                        int res = 0;
+                        if (transportMode == TRANSPORT_MODE_CAN) {
+                            HWND hBaudRate = GetDlgItem(hwnd, IDC_COMBO_BAUDRATE);
+                            int cnl_idx = SendMessage(hChannel, CB_GETCURSEL, 0, 0);
+                            int baud_idx = SendMessage(hBaudRate, CB_GETCURSEL, 0, 0);
+                            EnableWindow(hConnectBtn, FALSE);
+                            if (cnl_idx >= 0 && cnl_idx < g_channelCount && baud_idx >= 0) {
+                                res = CanManager_Connect(g_canManager, g_channels[cnl_idx], BAUD_RATES[baud_idx]);
                             }
+                        } else {
+                            HWND hUartBaudRate = GetDlgItem(hwnd, IDC_COMBO_UART_BAUDRATE);
+                            int port_idx = SendMessage(hChannel, CB_GETCURSEL, 0, 0);
+                            int baud_idx = SendMessage(hUartBaudRate, CB_GETCURSEL, 0, 0);
+                            EnableWindow(hConnectBtn, FALSE);
+                            if (port_idx >= 0 && port_idx < g_serialPortCount && baud_idx >= 0) {
+                                res = UartManager_Connect(g_uartManager, g_serialPorts[port_idx].portName, UART_BAUD_RATES[baud_idx]);
+                            }
+                        }
+
+                        if (res) {
+                            isConnected = 1;
+                            EnableWindow(hConnectBtn, TRUE);
+                            SetWindowTextW(hConnectBtn, L"Disconnect");
+                            EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_GETVERSION), TRUE);
+                            EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REBOOT), TRUE);
+                            EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_REFRESH), FALSE);
+                            EnableWindow(hChannel, FALSE);
+                            EnableWindow(GetDlgItem(hwnd, IDC_COMBO_BAUDRATE), FALSE);
+                            EnableWindow(GetDlgItem(hwnd, IDC_COMBO_UART_BAUDRATE), FALSE);
+                            UpdateFlashButtonState(hwnd);
+                            return TRUE;
                         }
                         EnableWindow(hConnectBtn, TRUE);
                         MessageBoxW(hwnd,
                                     L"Connection Failed\n\n"
-                                    L"Please check if device is connected\n"
-                                    L"or if it's being used by another program",
-                                    L"CAN Connection Failed", MB_OK | MB_ICONWARNING
+                                    L"Please check if device is connected\nor occupied by other program",
+                                    L"Connection Failed", MB_OK | MB_ICONWARNING
                                 );
                         return FALSE;
                     }
                 }
                 case IDC_BUTTON_GETVERSION: {
                     EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_GETVERSION), FALSE);
-                    uint32_t version = CanManager_GetFirmwareVersion(g_canManager);
+                    uint32_t version;
+                    if (transportMode == TRANSPORT_MODE_CAN) {
+                        version = CanManager_GetFirmwareVersion(g_canManager);
+                    } else {
+                        version = UartManager_GetFirmwareVersion(g_uartManager);
+                    }
                     if (version) {
                         wchar_t verMsg[32];
-                        wsprintfW(verMsg, L"Firmware Version: v%u.%u.%u", (version >> 24) & 0xFF,
+                        wsprintfW(verMsg, L"Version: v%u.%u.%u", (version >> 24) & 0xFF,
                               (version >> 16) & 0xFF, (version >> 8) & 0xFF);
                         SetWindowTextW(GetDlgItem(hwnd, IDC_LABEL_VERSION), verMsg);
                     }
@@ -282,7 +390,12 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                                 MB_OKCANCEL | MB_ICONINFORMATION
                             );
                     if (result == IDOK) {
-                        int status = CanManager_BoardReboot(g_canManager);
+                        int status;
+                        if (transportMode == TRANSPORT_MODE_CAN) {
+                            status = CanManager_BoardReboot(g_canManager);
+                        } else {
+                            status = UartManager_BoardReboot(g_uartManager);
+                        }
                         if (status)
                             AppendLog("Waiting for reboot to complete");
                     }
@@ -293,7 +406,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     GetWindowTextW(GetDlgItem(hwnd, IDC_EDIT_FIRMWARE), fileName, MAX_PATH);
 
                     if (wcslen(fileName) == 0) {
-                        MessageBoxW(hwnd, L"Please select a firmware file first", L"Tip", MB_OK | MB_ICONWARNING);
+                        MessageBoxW(hwnd, L"Please select firmware file first", L"Tip", MB_OK | MB_ICONWARNING);
                         return TRUE;
                     }
 
@@ -356,7 +469,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             int success = (wParam != 0);
             isUpdating = 0;
 
-            // Restore control states
+            // Restore control state
             EnableWindow(GetDlgItem(hwnd, IDC_BUTTON_BROWSE), TRUE);
             EnableWindow(GetDlgItem(hwnd, IDC_CHECK_TESTMODE), TRUE);
             UpdateFlashButtonState(hwnd);
@@ -365,7 +478,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (success) {
                 MessageBoxW(hwnd, L"Firmware upgrade completed! Please reboot the board", L"Success", MB_OK | MB_ICONINFORMATION);
             } else {
-                MessageBoxW(hwnd, L"Firmware upgrade failed, please check the log", L"Failed", MB_OK | MB_ICONERROR);
+                MessageBoxW(hwnd, L"Firmware upgrade failed, please check log", L"Failed", MB_OK | MB_ICONERROR);
             }
             return TRUE;
         }
@@ -374,7 +487,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             // If updating, prompt user
             if (isUpdating) {
                 int result = MessageBoxW(hwnd,
-                    L"Firmware update is in progress. Are you sure you want to exit?",
+                    L"Firmware update in progress, are you sure to exit?",
                     L"Warning",
                     MB_YESNO | MB_ICONWARNING);
                 if (result != IDYES) {
@@ -393,20 +506,29 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 }
 
 
-// WinMain entry function
+// WinMain entry point
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     // Create CAN manager
     g_canManager = CanManager_Create();
     if (!g_canManager) {
-        MessageBoxW(NULL, L"Cannot create CAN manager", L"Error", MB_OK | MB_ICONERROR);
+        MessageBoxW(NULL, L"Failed to create CAN manager", L"Error", MB_OK | MB_ICONERROR);
+        return 1;
+    }
+
+    // Create UART manager
+    g_uartManager = UartManager_Create();
+    if (!g_uartManager) {
+        MessageBoxW(NULL, L"Failed to create UART manager", L"Error", MB_OK | MB_ICONERROR);
+        CanManager_Destroy(g_canManager);
         return 1;
     }
 
     // Create modal dialog
     DialogBox(hInstance, MAKEINTRESOURCE(IDD_MAIN), NULL, DlgProc);
 
-    // Cleanup resources
+    // Clean up resources
     CanManager_Destroy(g_canManager);
+    UartManager_Destroy(g_uartManager);
 
     return 0;
 }

@@ -26,7 +26,7 @@ bool CanManager::connect(TPCANHandle channel, TPCANBaudrate baudrate) {
 
     if (m_channel != PCAN_NONEBUS) {
         LeaveCriticalSection(&m_criticalSection);
-        appendLog("CAN connection already exists, do not connect again");
+        appendLog("CAN already connected, please do not connect again");
         return true;
     }
 
@@ -101,7 +101,7 @@ uint32_t CanManager::getFirmwareVersion(void) {
 
     // Virtual CAN mode: return simulated version
     if (m_channel == VIRTUAL_CAN_CHANNEL) {
-        appendLog("Firmware version: v1.0.0 (Virtual CAN)");
+        appendLog("Version: v1.0.0 (Virtual CAN)");
         LeaveCriticalSection(&m_criticalSection);
         return 0x01000000;  // v1.0.0
     }
@@ -129,7 +129,7 @@ uint32_t CanManager::getFirmwareVersion(void) {
 
     if (code == FW_CODE_VERSION) {
         char buf[64];
-        sprintf(buf, "Firmware version: v%u.%u.%u", (version >> 24) & 0xFF,
+        sprintf(buf, "Version: v%u.%u.%u", (version >> 24) & 0xFF,
                 (version >> 16) & 0xFF, (version >> 8) & 0xFF);
         appendLog(buf);
         LeaveCriticalSection(&m_criticalSection);
@@ -151,7 +151,7 @@ bool CanManager::boardReboot(void) {
 
     // Virtual CAN mode: simulate reboot
     if (m_channel == VIRTUAL_CAN_CHANNEL) {
-        appendLog("Virtual board reboot successful");
+        appendLog("Virtual board reboot successfully");
         LeaveCriticalSection(&m_criticalSection);
         return true;
     }
@@ -184,7 +184,7 @@ bool CanManager::virtualCAN_FirmwareUpgrade(const wchar_t* fileName) {
     HANDLE hSrcFile = CreateFileW(fileName, GENERIC_READ, FILE_SHARE_READ, NULL,
                                   OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hSrcFile == INVALID_HANDLE_VALUE) {
-        appendLog("Cannot open source firmware file");
+        appendLog("Unable to open source firmware file");
         return false;
     }
 
@@ -201,7 +201,7 @@ bool CanManager::virtualCAN_FirmwareUpgrade(const wchar_t* fileName) {
                                   CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hDstFile == INVALID_HANDLE_VALUE) {
         CloseHandle(hSrcFile);
-        appendLog("Cannot create output file");
+        appendLog("Unable to create output file");
         return false;
     }
 
@@ -240,7 +240,7 @@ bool CanManager::virtualCAN_FirmwareUpgrade(const wchar_t* fileName) {
     CloseHandle(hDstFile);
 
     Sleep(200);
-    appendLog("Firmware send completed");
+    appendLog("Firmware sending completed");
     Sleep(200);
     appendLog("Firmware confirmation completed");
 
@@ -256,7 +256,7 @@ bool CanManager::pcan_FirmwareUpgrade(const wchar_t* fileName, bool testMode) {
     HANDLE hFile = CreateFileW(fileName, GENERIC_READ, FILE_SHARE_READ, NULL,
                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
-        appendLog("Cannot open firmware file");
+        appendLog("Unable to open firmware file");
         return false;
     }
 
@@ -332,11 +332,16 @@ bool CanManager::pcan_FirmwareUpgrade(const wchar_t* fileName, bool testMode) {
 
     CloseHandle(hFile);
 
+    // Set progress to 100%
+    if (progress_call) {
+        progress_call(100);
+    }
+
     msg.ID = PLATFORM_RX;
     frame->code = BOARD_CONFIRM;
     frame->val = testMode ? 0 : 1;
     if (CAN_Write(m_channel, &msg) != PCAN_ERROR_OK) {
-        appendLog("Firmware confirmation send failed!");
+        appendLog("Firmware confirmation failed!");
         return false;
     }
 
@@ -346,7 +351,7 @@ bool CanManager::pcan_FirmwareUpgrade(const wchar_t* fileName, bool testMode) {
     }
 
     if (code == FW_CODE_CONFIRM && offset == 0x55AA55AA) {
-        appendLog("Firmware upload completed. Click reboot, board will complete in 45-60 seconds");
+        appendLog("Firmware upload completed. Click reboot, board will complete reboot in 45-60 seconds");
         return true;
     } else if (code == FW_CODE_TRANFER_ERROR) {
         appendLog("Firmware update failed");
@@ -387,7 +392,7 @@ int CanManager::detectDevice(TPCANHandle* channels, int maxCount)
             channels[count++] = channel;
         }
     }
-    sprintf(msg, "Found %d device(s)", count);
+    sprintf(msg, "Found %d available CAN devices", count);
     appendLog(msg);
     return count;
 }

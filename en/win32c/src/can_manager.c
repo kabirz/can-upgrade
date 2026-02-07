@@ -64,7 +64,7 @@ int CanManager_Connect(CanManager* mgr, TPCANHandle channel, TPCANBaudrate baudr
 
     if (mgr->channel != PCAN_NONEBUS) {
         LeaveCriticalSection(&mgr->criticalSection);
-        appendLog(mgr, "CAN connection already exists, do not connect repeatedly");
+        appendLog(mgr, "CAN already connected, please do not connect again");
         return 1;
     }
 
@@ -144,7 +144,7 @@ uint32_t CanManager_GetFirmwareVersion(CanManager* mgr) {
 
     // Virtual CAN mode: return simulated version
     if (mgr->channel == VIRTUAL_CAN_CHANNEL) {
-        appendLog(mgr, "Firmware version: v1.0.0 (Virtual CAN)");
+        appendLog(mgr, "Version: v1.0.0 (Virtual CAN)");
         LeaveCriticalSection(&mgr->criticalSection);
         return 0x01000000;  // v1.0.0
     }
@@ -161,7 +161,7 @@ uint32_t CanManager_GetFirmwareVersion(CanManager* mgr) {
     TPCANStatus status = CAN_Write(mgr->channel, &msg);
     if (status != PCAN_ERROR_OK) {
         LeaveCriticalSection(&mgr->criticalSection);
-        appendLog(mgr, "CAN transmission failed");
+        appendLog(mgr, "CAN send failed");
         return 0;
     }
 
@@ -174,7 +174,7 @@ uint32_t CanManager_GetFirmwareVersion(CanManager* mgr) {
 
     if (code == FW_CODE_VERSION) {
         char buf[64];
-        sprintf(buf, "Firmware version: v%u.%u.%u", (version >> 24) & 0xFF,
+        sprintf(buf, "Version: v%u.%u.%u", (version >> 24) & 0xFF,
                 (version >> 16) & 0xFF, (version >> 8) & 0xFF);
         appendLog(mgr, buf);
         LeaveCriticalSection(&mgr->criticalSection);
@@ -200,7 +200,7 @@ int CanManager_BoardReboot(CanManager* mgr) {
 
     // Virtual CAN mode: simulate reboot
     if (mgr->channel == VIRTUAL_CAN_CHANNEL) {
-        appendLog(mgr, "Virtual board reboot successful");
+        appendLog(mgr, "Virtual board rebooted successfully");
         LeaveCriticalSection(&mgr->criticalSection);
         return 1;
     }
@@ -218,7 +218,7 @@ int CanManager_BoardReboot(CanManager* mgr) {
     LeaveCriticalSection(&mgr->criticalSection);
 
     if (status != PCAN_ERROR_OK) {
-        appendLog(mgr, "CAN transmission failed");
+        appendLog(mgr, "CAN send failed");
         return 0;
     }
 
@@ -290,7 +290,7 @@ static int VirtualCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName) 
     CloseHandle(hDstFile);
 
     Sleep(200);
-    appendLog(mgr, "Firmware transmission completed");
+    appendLog(mgr, "Firmware sent completed");
     Sleep(200);
     appendLog(mgr, "Firmware confirmation completed");
 
@@ -307,7 +307,7 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
     HANDLE hFile = CreateFileW(fileName, GENERIC_READ, FILE_SHARE_READ, NULL,
                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
-        // Convert wide char file name to UTF-8 for log output
+        // Convert wide character filename to UTF-8 for log output
         WideCharToMultiByte(CP_UTF8, 0, fileName, -1, logMsg + 20, 200, NULL, NULL);
         sprintf(logMsg, "Cannot open file: %s", logMsg + 20);
         appendLog(mgr, logMsg);
@@ -388,6 +388,11 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
 
     CloseHandle(hFile);
 
+    // Set progress to 100%
+    if (mgr->progressCallback) {
+        mgr->progressCallback(100);
+    }
+
     msg.ID = PLATFORM_RX;
     msg.LEN = 8;
     memset(msg.DATA, 0, 8);
@@ -396,7 +401,7 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
     frame->val = testMode ? 0 : 1;
 
     if (CAN_Write(mgr->channel, &msg) != PCAN_ERROR_OK) {
-        appendLog(mgr, "Firmware confirmation failed!");
+        appendLog(mgr, "Failed to send firmware confirmation!");
         return 0;
     }
 
@@ -406,9 +411,9 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
     }
 
     if (code == FW_CODE_CONFIRM && offset == 0x55AA55AA) {
-        // Convert wide char file name to UTF-8 for log output
+        // Convert wide character filename to UTF-8 for log output
         WideCharToMultiByte(CP_UTF8, 0, fileName, -1, logMsg + 20, 200, NULL, NULL);
-        sprintf(logMsg, "File %s upload completed. Click reboot, board will complete in 45-60 seconds", logMsg + 20);
+        sprintf(logMsg, "File %s upload completed. Click reboot, board will complete reboot in 45-60 seconds", logMsg + 20);
         appendLog(mgr, logMsg);
         return 1;
     } else if (code == FW_CODE_TRANFER_ERROR) {
@@ -452,7 +457,7 @@ int CanManager_DetectDevice(CanManager* mgr, TPCANHandle* channels, int maxCount
             channels[count++] = channel;
         }
     }
-    sprintf(msg, "Found %d device(s)", count);
+    sprintf(msg, "Found %d available CAN devices", count);
     appendLog(mgr, msg);
     return count;
 }

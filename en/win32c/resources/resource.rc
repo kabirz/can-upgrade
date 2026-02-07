@@ -6,7 +6,7 @@
 // Application icon
 IDI_APPICON ICON "icon.ico"
 
-// Window icon
+// Window icon (optional, usually same as main icon)
 IDI_APPICON_SMALL ICON "icon.ico"
 
 // Main menu
@@ -19,7 +19,10 @@ BEGIN
     END
     POPUP "&Edit"
     BEGIN
-        MENUITEM "&Clear Log",              IDM_EDIT_CLEARLOG
+        MENUITEM "Clear &Log",              IDM_EDIT_CLEARLOG
+        MENUITEM SEPARATOR
+        MENUITEM "Transport &CAN",          IDM_EDIT_TRANSPORT_CAN
+        MENUITEM "Transport &UART",         IDM_EDIT_TRANSPORT_UART
     END
     POPUP "&Help"
     BEGIN
@@ -31,7 +34,7 @@ END
 IDD_MAIN DIALOGEX 270, 100, 380, 222
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_APPWINDOW
-CAPTION "CAN Firmware Upgrade Tool"
+CAPTION "Firmware Upgrade Tool"
 FONT 9, "Microsoft YaHei", 400, 0, 0x0
 MENU IDR_MAINMENU
 BEGIN
@@ -41,6 +44,7 @@ BEGIN
     COMBOBOX        IDC_COMBO_CHANNEL, 55, 15, 80, 60, CBS_DROPDOWNLIST | WS_VSCROLL
     LTEXT           "Baud Rate:", IDC_STATIC, 145, 15, 40, 12, SS_LEFT
     COMBOBOX        IDC_COMBO_BAUDRATE, 187, 15, 80, 60, CBS_DROPDOWNLIST | WS_VSCROLL
+    COMBOBOX        IDC_COMBO_UART_BAUDRATE, 187, 15, 60, 60, CBS_DROPDOWNLIST | WS_VSCROLL
     PUSHBUTTON      "Refresh", IDC_BUTTON_REFRESH, 277, 15, 45, 14, WS_TABSTOP
     PUSHBUTTON      "Connect", IDC_BUTTON_CONNECT, 325, 15, 45, 14, WS_TABSTOP
 
@@ -65,4 +69,20 @@ BEGIN
     PUSHBUTTON      "Get Version", IDC_BUTTON_GETVERSION, 325, 142, 45, 14, WS_TABSTOP
     PUSHBUTTON      "Reboot", IDC_BUTTON_REBOOT, 325, 165, 45, 14, WS_TABSTOP
     PUSHBUTTON      "Clear Log", IDC_BUTTON_CLEAR_LOG, 325, 190, 45, 14, WS_TABSTOP
+END
+
+// About dialog
+IDD_ABOUT DIALOGEX 0, 0, 200, 100
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About"
+FONT 9, "Microsoft YaHei", 400, 0, 0x0
+BEGIN
+    LTEXT           "Firmware Upgrade Tool v1.1", IDC_STATIC, 35, 15, 130, 10, SS_CENTER
+    LTEXT           "CAN/UART Dual-Bus Firmware Upgrade", IDC_STATIC, 35, 30, 130, 10, SS_CENTER
+    LTEXT           "", IDC_STATIC, 35, 45, 130, 10, SS_CENTER
+    LTEXT           "Features:", IDC_STATIC, 20, 50, 40, 10, SS_LEFT
+    LTEXT           "- CAN bus upgrade (PCAN interface)", IDC_STATIC, 30, 62, 140, 8, SS_LEFT
+    LTEXT           "- UART serial upgrade", IDC_STATIC, 30, 72, 140, 8, SS_LEFT
+    LTEXT           "- Firmware upgrade with test mode", IDC_STATIC, 30, 82, 140, 8, SS_LEFT
+    DEFPUSHBUTTON   "OK", IDOK, 77, 80, 50, 14, WS_TABSTOP
 END
