@@ -42,6 +42,7 @@ void MX_USART1_UART_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 void Log_Init(void);
+void UART_StartRxIT(void);
 
 /* 调试日志宏 - 由BOOTLOADER_DEBUG_LOG控制 */
 #if BOOTLOADER_DEBUG_LOG

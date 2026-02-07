@@ -102,6 +102,16 @@ void JumpToApp(uint32_t app_addr);
 
 /* Bootloader版本 */
 #define BOOTLOADER_VERSION        ((1 << 24) | (0 << 16) | (0 << 8)) /* v1.0.0 */
+
+/* 调试日志控制 */
+#define BOOTLOADER_DEBUG_LOG      1    /* 1-启用日志 0-禁用日志 */
+
+#if BOOTLOADER_DEBUG_LOG
+/* 传输层选择 */
+#define USE_CAN_TRANSPORT         1    /* 启用日志时可选择传输层 */
+#else
+#define USE_CAN_TRANSPORT         0    /* 禁用日志时强制使用UART传输层 */
+#endif
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

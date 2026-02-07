@@ -24,8 +24,12 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include "main.h"
+#include "fw_uart.h"
 
 #define LOG_BUFFER_SIZE 256
+
+/* UART接收缓冲区 */
+static uint8_t uart_rx_byte = 0;
 
 /* USER CODE END 0 */
 
@@ -157,4 +161,30 @@ int Log_printf(const char *format, ...)
   return len;
 }
 #endif /* BOOTLOADER_DEBUG_LOG */
+
+/**
+ * @brief 启动UART接收中断
+ * @note 在FW_UART_Init后调用
+ */
+void UART_StartRxIT(void)
+{
+  HAL_UART_Receive_IT(&huart1, &uart_rx_byte, 1);
+}
+
+/**
+ * @brief UART接收完成回调函数
+ * @param huart UART句柄
+ */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance == USART1)
+  {
+    /* 将接收到的字节传递给UART传输层 */
+    FW_UART_RxCallback(uart_rx_byte);
+
+    /* 重新启动接收 */
+    HAL_UART_Receive_IT(&huart1, &uart_rx_byte, 1);
+  }
+}
+
 /* USER CODE END 1 */

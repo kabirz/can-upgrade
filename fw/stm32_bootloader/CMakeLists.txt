@@ -50,6 +50,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     Core/Src/fw_upgrade.c
     Core/Src/fw_can.c
+    Core/Src/fw_uart.c
 )
 
 # Add include paths

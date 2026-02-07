@@ -29,6 +29,7 @@
 #include "usart.h"
 #include "fw_upgrade.h"
 #include "fw_can.h"
+#include "fw_uart.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,6 +50,7 @@
 
 /* USER CODE BEGIN PV */
 /* CAN传输层接口定义 */
+#ifdef USE_CAN_TRANSPORT
 static const fw_transport_t can_transport = {
     .name = "CAN",
     .init = FW_CAN_Init,
@@ -56,6 +58,18 @@ static const fw_transport_t can_transport = {
     .send_response = FW_CAN_SendResponse,
     .wait_tx_complete = FW_CAN_WaitTxComplete
 };
+#define TRANSPORT_LAYER &can_transport
+#else
+/* UART传输层接口定义 */
+static const fw_transport_t uart_transport = {
+    .name = "UART",
+    .init = FW_UART_Init,
+    .process_rx_data = FW_UART_ProcessRxData,
+    .send_response = FW_UART_SendResponse,
+    .wait_tx_complete = FW_UART_WaitTxComplete
+};
+#define TRANSPORT_LAYER &uart_transport
+#endif
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -104,14 +118,14 @@ int main(void)
   Log_printf("  STM32 Bootloader v%d.%d.%d\r\n", (BOOTLOADER_VERSION >> 24) & 0xFF,
              (BOOTLOADER_VERSION >> 16) & 0xFF, (BOOTLOADER_VERSION >> 8) & 0xFF);
   Log_printf("========================================\r\n");
-  Log_printf("Flash: %08X - %08X\r\n", FLASH_APP_START_ADDR, FLASH_APP_END_ADDR);
-  Log_printf("App Start: %08X\r\n", APP_START_ADDR);
+  Log_printf("Flash: 0x%08X - 0x%08X\r\n", FLASH_APP_START_ADDR, FLASH_APP_END_ADDR);
+  Log_printf("App Start: 0x%08X\r\n", APP_START_ADDR);
 
   /* 检测Key1按键状态，低电平为按下 */
   if (HAL_GPIO_ReadPin(Key1_GPIO_Port, Key1_Pin) == GPIO_PIN_RESET)
   {
     Log_printf("[BOOT] Key1 pressed, enter upgrade mode\r\n");
-    FW_Upgrade_Init(&can_transport);
+    FW_Upgrade_Init(TRANSPORT_LAYER);
   }
   else
   {
@@ -121,11 +135,11 @@ int main(void)
       Log_printf("[BOOT] Upgrade flag detected, clearing flag...\r\n");
       ClearUpgradeFlag();
       Log_printf("[BOOT] Entering upgrade mode\r\n");
-      FW_Upgrade_Init(&can_transport);
+      FW_Upgrade_Init(TRANSPORT_LAYER);
     }
     else if (VerifyAppFirmware())
     {
-      Log_printf("[BOOT] App firmware valid, jumping to %08X\r\n", APP_START_ADDR);
+      Log_printf("[BOOT] App firmware valid, jumping to 0x%08X\r\n", APP_START_ADDR);
       JumpToApp(APP_START_ADDR);
     }
     /* 应用固件无效，保持在bootloader模式 */
