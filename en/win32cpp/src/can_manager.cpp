@@ -49,6 +49,7 @@ bool CanManager::connect(TPCANHandle channel, TPCANBaudrate baudrate) {
         char logMsg[32];
         sprintf(logMsg, "CAN(id=%xh) connected successfully", channel);
         appendLog(logMsg);
+        CAN_FilterMessages(channel, PLATFORM_TX, PLATFORM_TX, PCAN_MODE_STANDARD);
         return true;
     }
 }
@@ -83,8 +84,6 @@ bool CanManager::CAN_WaitForResponse(uint32_t* code, uint32_t* param, int timeou
             return true;
         } else if (status == PCAN_ERROR_QRCVEMPTY) {
             Sleep(1);
-        } else {
-            break;
         }
     }
     return false;

@@ -87,6 +87,7 @@ int CanManager_Connect(CanManager* mgr, TPCANHandle channel, TPCANBaudrate baudr
         char logMsg[32];
         sprintf(logMsg, "CAN(id=%xh) connected successfully", channel);
         appendLog(mgr, logMsg);
+        CAN_FilterMessages(mgr->channel, PLATFORM_TX, PLATFORM_TX, PCAN_MODE_STANDARD);
         return 1;
     }
 }
@@ -124,8 +125,6 @@ static int CAN_WaitForResponse(CanManager* mgr, uint32_t* code, uint32_t* param,
             return 1;
         } else if (status == PCAN_ERROR_QRCVEMPTY) {
             Sleep(1);
-        } else {
-            break;
         }
     }
     return 0;
