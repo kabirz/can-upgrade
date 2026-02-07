@@ -24,7 +24,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "string.h"
+#include "stdint.h"
+#include "usart.h"
+#include "fw_upgrade.h"
+#include "fw_can.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,7 +38,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,18 +48,23 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+/* CAN传输层接口定义 */
+static const fw_transport_t can_transport = {
+    .name = "CAN",
+    .init = FW_CAN_Init,
+    .process_rx_data = FW_CAN_ProcessRxData,
+    .send_response = FW_CAN_SendResponse,
+    .wait_tx_complete = FW_CAN_WaitTxComplete
+};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 /* USER CODE END 0 */
 
 /**
@@ -91,7 +99,43 @@ int main(void)
   MX_CAN_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  /* 输出Bootloader启动信息 */
+  Log_printf("\r\n========================================\r\n");
+  Log_printf("  STM32 Bootloader v%d.%d.%d\r\n", (BOOTLOADER_VERSION >> 24) & 0xFF,
+             (BOOTLOADER_VERSION >> 16) & 0xFF, (BOOTLOADER_VERSION >> 8) & 0xFF);
+  Log_printf("========================================\r\n");
+  Log_printf("Flash: %08X - %08X\r\n", FLASH_APP_START_ADDR, FLASH_APP_END_ADDR);
+  Log_printf("App Start: %08X\r\n", APP_START_ADDR);
 
+  /* 检测Key1按键状态，低电平为按下 */
+  if (HAL_GPIO_ReadPin(Key1_GPIO_Port, Key1_Pin) == GPIO_PIN_RESET)
+  {
+    Log_printf("[BOOT] Key1 pressed, enter upgrade mode\r\n");
+    FW_Upgrade_Init(&can_transport);
+  }
+  else
+  {
+    /* Key1未按下，检查升级标志和应用固件 */
+    if (CheckUpgradeFlag())
+    {
+      Log_printf("[BOOT] Upgrade flag detected, clearing flag...\r\n");
+      ClearUpgradeFlag();
+      Log_printf("[BOOT] Entering upgrade mode\r\n");
+      FW_Upgrade_Init(&can_transport);
+    }
+    else if (VerifyAppFirmware())
+    {
+      Log_printf("[BOOT] App firmware valid, jumping to %08X\r\n", APP_START_ADDR);
+      JumpToApp(APP_START_ADDR);
+    }
+    /* 应用固件无效，保持在bootloader模式 */
+    else
+    {
+      Log_printf("[BOOT] App firmware invalid!\r\n");
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+      Log_printf("[BOOT] Staying in bootloader mode (LED2 ON)\r\n");
+    }
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -101,6 +145,12 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    /* 调用传输层处理接收数据 */
+    const fw_transport_t *transport = FW_GetTransport();
+    if (transport != NULL && transport->process_rx_data != NULL)
+    {
+      transport->process_rx_data();
+    }
   }
   /* USER CODE END 3 */
 }
@@ -145,7 +195,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
 /* USER CODE END 4 */
 
 /**

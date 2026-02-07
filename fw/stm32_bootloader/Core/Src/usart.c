@@ -21,6 +21,10 @@
 #include "usart.h"
 
 /* USER CODE BEGIN 0 */
+#include <stdio.h>
+#include <stdarg.h>
+
+#define LOG_BUFFER_SIZE 256
 
 /* USER CODE END 0 */
 
@@ -113,5 +117,35 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 }
 
 /* USER CODE BEGIN 1 */
+/**
+ * @brief 初始化日志输出
+ */
+void Log_Init(void)
+{
+  /* UART已在MX_USART1_UART_Init中初始化 */
+}
 
+/**
+ * @brief 格式化输出日志到串口
+ * @param format 格式化字符串
+ * @retval 输出的字符数
+ */
+int Log_printf(const char *format, ...)
+{
+  char buffer[LOG_BUFFER_SIZE];
+  va_list args;
+  int len;
+
+  va_start(args, format);
+  len = vsnprintf(buffer, LOG_BUFFER_SIZE, format, args);
+  va_end(args);
+
+  /* 发送数据到串口 */
+  if (len > 0)
+  {
+    HAL_UART_Transmit(&huart1, (uint8_t *)buffer, len, HAL_MAX_DELAY);
+  }
+
+  return len;
+}
 /* USER CODE END 1 */
