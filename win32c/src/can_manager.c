@@ -388,6 +388,11 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
 
     CloseHandle(hFile);
 
+    // 设置进度为 100%
+    if (mgr->progressCallback) {
+        mgr->progressCallback(100);
+    }
+
     msg.ID = PLATFORM_RX;
     msg.LEN = 8;
     memset(msg.DATA, 0, 8);
@@ -452,7 +457,7 @@ int CanManager_DetectDevice(CanManager* mgr, TPCANHandle* channels, int maxCount
             channels[count++] = channel;
         }
     }
-    sprintf(msg, "查询到%d个设备", count);
+    sprintf(msg, "查询到 %d 个可用CAN设备", count);
     appendLog(mgr, msg);
     return count;
 }

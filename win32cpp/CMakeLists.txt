@@ -12,6 +12,7 @@ add_compile_definitions(UNICODE _UNICODE)
 set(SOURCES
     src/main.cpp
     src/can_manager.cpp
+    src/uart_manager.cpp
 )
 
 
@@ -58,12 +59,14 @@ if(MINGW)
         -lcomctl32    # 通用控件库（进度条）
         -lcomdlg32    # 通用对话框库（文件选择）
         -lgdi32       # GDI 图形设备接口
+        -lsetupapi    # SetupAPI（串口枚举）
     )
 elseif(MSVC)
     target_link_libraries(can-upgrade PRIVATE
         comctl32      # 通用控件库（进度条）
         comdlg32      # 通用对话框库（文件选择）
         gdi32         # GDI 图形设备接口
+        setupapi      # SetupAPI（串口枚举）
     )
 endif()
 

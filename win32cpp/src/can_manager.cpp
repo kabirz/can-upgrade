@@ -332,6 +332,11 @@ bool CanManager::pcan_FirmwareUpgrade(const wchar_t* fileName, bool testMode) {
 
     CloseHandle(hFile);
 
+    // 设置进度为 100%
+    if (progress_call) {
+        progress_call(100);
+    }
+
     msg.ID = PLATFORM_RX;
     frame->code = BOARD_CONFIRM;
     frame->val = testMode ? 0 : 1;
@@ -387,7 +392,7 @@ int CanManager::detectDevice(TPCANHandle* channels, int maxCount)
             channels[count++] = channel;
         }
     }
-    sprintf(msg, "查询到%d个设备", count);
+    sprintf(msg, "查询到 %d 个可用CAN设备", count);
     appendLog(msg);
     return count;
 }

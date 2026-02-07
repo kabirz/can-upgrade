@@ -1,13 +1,24 @@
-# CAN 固件升级工具 (C++ 版本)
+# 固件升级工具 (C++ 版本)
 
-纯 C++20 实现的 CAN 固件升级工具，用于通过 PCAN 接口升级板卡固件。
+纯 C++20 实现的固件升级工具，支持 **CAN/UART 双总线**通信，用于通过 PCAN 接口或串口升级板卡固件。
 
 ## 功能特性
+
+- **双传输模式支持**
+  - CAN 总线模式：通过 PCAN-USB 接口进行固件升级
+  - UART 串口模式：通过串口进行固件升级
+  - 菜单栏快速切换传输模式
 
 - **CAN 设备连接管理**
   - 自动检测 PCAN-USB 设备（最多 16 个）
   - 支持多种波特率（10K - 1M）
   - 连接/断开设备管理
+
+- **UART 串口连接管理**
+  - 快速枚举可用串口（使用 SetupAPI）
+  - 支持多种波特率（9600 - 921600）
+  - 自动过滤蓝牙虚拟串口
+  - 非阻塞 I/O，快速固件传输
 
 - **虚拟 CAN 支持（测试模式）**
   - 无需硬件即可测试 GUI 功能
@@ -17,8 +28,7 @@
 
 - **固件升级功能**
   - 读取 .bin 固件文件
-  - 通过 CAN 总线发送固件数据
-  - 实时进度条和百分比显示
+  - 实时进度条和百分比显示（0% - 100%）
   - 支持测试模式（第二次重启后恢复原固件）
 
 - **板卡命令**
@@ -30,19 +40,21 @@
   - 支持中文界面（微软雅黑字体）
   - 实时日志显示
   - 进度条显示升级进度
-  - 百分比数值显示（0% - 100%）
+  - 百分比数值显示
 
 ## 目录结构
 
 ```
-wincpp/
+win32cpp/
 ├── include/            # 头文件
 │   ├── can_manager.h   # CAN 管理器接口
+│   ├── uart_manager.h  # UART 管理器接口
 │   ├── resource.h      # 资源 ID 定义
 │   └── PCANBasic.h     # PCAN-Basic API
 ├── src/                # 源文件
 │   ├── main.cpp        # 主程序和 GUI 逻辑
-│   └── can_manager.cpp # CAN 通信管理实现
+│   ├── can_manager.cpp # CAN 通信管理实现
+│   └── uart_manager.cpp # UART 通信管理实现
 ├── resources/          # 资源文件
 │   ├── resource.rc     # Windows 资源脚本
 │   └── icon.ico        # 应用图标
@@ -145,6 +157,7 @@ build/can-upgrade.exe
 | comctl32 | 通用控件库（进度条） |
 | comdlg32 | 通用对话框库（文件选择） |
 | gdi32 | GDI 图形设备接口 |
+| setupapi | 串口设备枚举（UART 模式） |
 
 ### 编译要求
 
@@ -202,9 +215,11 @@ build/can-upgrade.exe
    - 提取重复字符串为常量
    - 使用更简洁的错误提示
 
-## CAN 通信协议
+## 通信协议
 
-### CAN ID 定义
+### CAN 协议
+
+#### CAN ID 定义
 
 | CAN ID | 方向 | 说明 |
 |--------|------|------|
@@ -212,7 +227,39 @@ build/can-upgrade.exe
 | 0x102 | 板卡 → PC | 平台响应 (PLATFORM_TX) |
 | 0x103 | PC → 板卡 | 固件数据 (FW_DATA_RX) |
 
+#### 帧格式
+
+CAN 数据帧使用标准 8 字节数据格式：
+
+```cpp
+struct CanFrame {
+    uint32_t code;   // 命令码/响应码（小端序）
+    uint32_t val;    // 参数值（小端序）
+};
+```
+
+### UART 协议
+
+#### 帧格式
+
+UART 使用自定义帧格式，包含帧头、类型、长度、数据和校验：
+
+| 字段 | 字节数 | 说明 |
+|------|--------|------|
+| 帧头 | 1 | 固定 0xAA |
+| 类型 | 1 | 0x01=命令, 0x02=数据 |
+| 长度 | 2 | 数据长度（大端序） |
+| 数据 | 0-8 | 有效数据 |
+| CRC16 | 2 | CRC16-CCITT（大端序） |
+| 帧尾 | 1 | 固定 0x55 |
+
+#### CRC16 算法
+
+使用 CRC16-CCITT 算法（多项式 0xA001，初始值 0xFFFF）。
+
 ### 板卡命令
+
+两种传输模式使用相同的命令码：
 
 | 命令码 | 名称 | 说明 |
 |--------|------|------|
@@ -234,16 +281,17 @@ build/can-upgrade.exe
 
 ## 与 win32c 项目对比
 
-| 特性 | win32cpp (C++) | win32c (C, MSVC) |
-|------|-------------|-------------------|
-| 语言 | C++20 | C |
-| exe 大小 | ~34 KB | ~30 KB |
-| 编译器 | MSVC | MSVC |
-| 同步机制 | CRITICAL_SECTION | CRITICAL_SECTION |
-| 容器 | 固定数组 | 固定数组 |
-| 内存管理 | new/delete | malloc/free |
-| 接口 | class 成员函数 | 不透明句柄 + 函数 |
-| 代码风格 | 现代 C++ | 传统 C |
+| 特性 | win32cpp (C++, MSVC) | win32cpp (C++, MinGW) | win32c (C, MSVC) | win32c (C, MinGW) |
+|------|-------------------|-------------------|-------------------|-------------------|
+| 语言 | C++20 | C++20 | C | C |
+| exe 大小 | ~34 KB | ~121 KB | ~30 KB | ~121 KB |
+| 编译器 | MSVC | GCC | MSVC | GCC |
+| 传输模式 | CAN/UART | CAN/UART | CAN/UART | CAN/UART |
+| 同步机制 | CRITICAL_SECTION | CRITICAL_SECTION | CRITICAL_SECTION | CRITICAL_SECTION |
+| 容器 | 固定数组 | 固定数组 | 固定数组 | 固定数组 |
+| 内存管理 | new/delete | new/delete | malloc/free | malloc/free |
+| 接口 | class 成员函数 | class 成员函数 | 不透明句柄 + 函数 | 不透明句柄 + 函数 |
+| 代码风格 | 现代 C++ | 现代 C++ | 传统 C | 传统 C |
 
 ## 许可证
 
