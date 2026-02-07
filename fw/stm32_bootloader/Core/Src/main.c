@@ -50,7 +50,7 @@
 
 /* USER CODE BEGIN PV */
 /* CAN传输层接口定义 */
-#ifdef USE_CAN_TRANSPORT
+#if USE_CAN_TRANSPORT
 static const fw_transport_t can_transport = {
     .name = "CAN",
     .init = FW_CAN_Init,
