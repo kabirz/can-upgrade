@@ -41,8 +41,15 @@ extern UART_HandleTypeDef huart1;
 void MX_USART1_UART_Init(void);
 
 /* USER CODE BEGIN Prototypes */
-int Log_printf(const char *format, ...);
 void Log_Init(void);
+
+/* 调试日志宏 - 由BOOTLOADER_DEBUG_LOG控制 */
+#if BOOTLOADER_DEBUG_LOG
+int Log_printf(const char *format, ...);
+#else
+/* 日志禁用时，Log_printf展开为空操作，不产生任何代码 */
+#define Log_printf(...)
+#endif
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus
