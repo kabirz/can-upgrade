@@ -22,6 +22,7 @@
 #include "stm32f1xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "fw_can.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -229,5 +230,24 @@ void TIM1_UP_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+/**
+ * @brief CAN接收FIFO1消息挂起回调函数
+ * @note  从FIFO读取消息并写入环形缓冲区
+ * @retval None
+ */
+void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  CAN_RxHeaderTypeDef rx_header;
+  uint8_t rx_data[8];
 
+  /* 接收CAN消息 */
+  if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO1, &rx_header, rx_data) == HAL_OK)
+  {
+    /* 写入环形缓冲区 */
+    FW_CAN_RingBuffer_Write_FromIRQ(rx_header.StdId, rx_data, rx_header.DLC);
+
+    /* 设置接收标志 */
+    fw_can_rx_flag = 1;
+  }
+}
 /* USER CODE END 1 */
