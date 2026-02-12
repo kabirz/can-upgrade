@@ -1,0 +1,101 @@
+{
+    "version": 7,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "default",
+            "displayName": "MinGW (Linux Cross-Compile)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build"
+        },
+        {
+            "name": "vs",
+            "displayName": "Visual Studio (Windows Native)",
+            "binaryDir": "${sourceDir}/out"
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "Release",
+            "configurePreset": "default",
+            "configuration": "Release"
+        },
+        {
+            "name": "Debug",
+            "configurePreset": "default",
+            "configuration": "Debug"
+        },
+        {
+            "name": "vs-release",
+            "configurePreset": "vs",
+            "configuration": "Release"
+        },
+        {
+            "name": "vs-debug",
+            "configurePreset": "vs",
+            "configuration": "Debug"
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "release",
+            "displayName": "Release Workflow (MinGW)",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "default"
+                },
+                {
+                    "type": "build",
+                    "name": "Release"
+                }
+            ]
+        },
+        {
+            "name": "debug",
+            "displayName": "Debug Workflow (MinGW)",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "default"
+                },
+                {
+                    "type": "build",
+                    "name": "Debug"
+                }
+            ]
+        },
+        {
+            "name": "vs-release",
+            "displayName": "Release Workflow (Visual Studio)",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "vs"
+                },
+                {
+                    "type": "build",
+                    "name": "vs-release"
+                }
+            ]
+        },
+        {
+            "name": "vs-debug",
+            "displayName": "Debug Workflow (Visual Studio)",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "vs"
+                },
+                {
+                    "type": "build",
+                    "name": "vs-debug"
+                }
+            ]
+        }
+    ]
+}
