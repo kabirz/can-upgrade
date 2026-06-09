@@ -2,23 +2,24 @@
 
 static HMODULE g_hPcanModule = NULL;
 
-PFN_PCAN_Initialize Pcan_Initialize = NULL;
-PFN_PCAN_Uninitialize Pcan_Uninitialize = NULL;
-PFN_PCAN_Read Pcan_Read = NULL;
-PFN_PCAN_Write Pcan_Write = NULL;
-PFN_PCAN_FilterMessages Pcan_FilterMessages = NULL;
-PFN_PCAN_LookUpChannel Pcan_LookUpChannel = NULL;
-PFN_PCAN_GetErrorText Pcan_GetErrorText = NULL;
+PFN_PCAN_Initialize Pcan_Initialize;
+PFN_PCAN_Uninitialize Pcan_Uninitialize;
+PFN_PCAN_Read Pcan_Read;
+PFN_PCAN_Write Pcan_Write;
+PFN_PCAN_FilterMessages Pcan_FilterMessages;
+PFN_PCAN_LookUpChannel Pcan_LookUpChannel;
+PFN_PCAN_GetErrorText Pcan_GetErrorText;
 
-static void ClearPointers(void) {
-    Pcan_Initialize = NULL;
-    Pcan_Uninitialize = NULL;
-    Pcan_Read = NULL;
-    Pcan_Write = NULL;
-    Pcan_FilterMessages = NULL;
-    Pcan_LookUpChannel = NULL;
-    Pcan_GetErrorText = NULL;
-}
+#define LOAD_PROC(name) \
+    Pcan_##name = (PFN_PCAN_##name)GetProcAddress(g_hPcanModule, "CAN_" #name)
+
+#define FUNC_PTR(name) (void**)&Pcan_##name
+
+static void* const g_funcPtrs[] = {
+    FUNC_PTR(Initialize), FUNC_PTR(Uninitialize), FUNC_PTR(Read),
+    FUNC_PTR(Write), FUNC_PTR(FilterMessages), FUNC_PTR(LookUpChannel),
+    FUNC_PTR(GetErrorText)
+};
 
 int PcanLoader_IsLoaded(void) {
     return g_hPcanModule != NULL;
@@ -30,20 +31,19 @@ int PcanLoader_Load(void) {
     g_hPcanModule = LoadLibraryW(L"PCANBasic.dll");
     if (!g_hPcanModule) return 0;
 
-    Pcan_Initialize = (PFN_PCAN_Initialize)GetProcAddress(g_hPcanModule, "CAN_Initialize");
-    Pcan_Uninitialize = (PFN_PCAN_Uninitialize)GetProcAddress(g_hPcanModule, "CAN_Uninitialize");
-    Pcan_Read = (PFN_PCAN_Read)GetProcAddress(g_hPcanModule, "CAN_Read");
-    Pcan_Write = (PFN_PCAN_Write)GetProcAddress(g_hPcanModule, "CAN_Write");
-    Pcan_FilterMessages = (PFN_PCAN_FilterMessages)GetProcAddress(g_hPcanModule, "CAN_FilterMessages");
-    Pcan_LookUpChannel = (PFN_PCAN_LookUpChannel)GetProcAddress(g_hPcanModule, "CAN_LookUpChannel");
-    Pcan_GetErrorText = (PFN_PCAN_GetErrorText)GetProcAddress(g_hPcanModule, "CAN_GetErrorText");
+    LOAD_PROC(Initialize);
+    LOAD_PROC(Uninitialize);
+    LOAD_PROC(Read);
+    LOAD_PROC(Write);
+    LOAD_PROC(FilterMessages);
+    LOAD_PROC(LookUpChannel);
+    LOAD_PROC(GetErrorText);
 
     if (!Pcan_Initialize || !Pcan_Uninitialize || !Pcan_Read || !Pcan_Write ||
         !Pcan_FilterMessages || !Pcan_LookUpChannel || !Pcan_GetErrorText) {
         PcanLoader_Unload();
         return 0;
     }
-
     return 1;
 }
 
@@ -52,5 +52,6 @@ void PcanLoader_Unload(void) {
         FreeLibrary(g_hPcanModule);
         g_hPcanModule = NULL;
     }
-    ClearPointers();
+    for (int i = 0; i < sizeof(g_funcPtrs)/sizeof(g_funcPtrs[0]); i++)
+        *(void**)g_funcPtrs[i] = NULL;
 }

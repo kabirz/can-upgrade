@@ -9,107 +9,94 @@ struct CanManager {
     TPCANHandle channel;
     msgCallback msgCallback;
     progressCallback progressCallback;
-    int initialized;
 };
 
 CanManager* CanManager_Create(void) {
     CanManager* mgr = (CanManager*)malloc(sizeof(CanManager));
     if (!mgr) return NULL;
-
     InitializeCriticalSection(&mgr->criticalSection);
     mgr->channel = PCAN_NONEBUS;
     mgr->msgCallback = NULL;
     mgr->progressCallback = NULL;
-    mgr->initialized = 1;
-
     return mgr;
 }
 
 void CanManager_Destroy(CanManager* mgr) {
     if (!mgr) return;
-    if (mgr->initialized) {
-        DeleteCriticalSection(&mgr->criticalSection);
-    }
+    DeleteCriticalSection(&mgr->criticalSection);
     free(mgr);
 }
 
-void CanManager_SetCallback(CanManager* mgr, msgCallback msg_call) {
-    if (mgr) mgr->msgCallback = msg_call;
+void CanManager_SetCallback(CanManager* mgr, msgCallback cb) {
+    if (mgr) mgr->msgCallback = cb;
 }
 
-void CanManager_SetProgressCallback(CanManager* mgr, progressCallback progress_call) {
-    if (mgr) mgr->progressCallback = progress_call;
+void CanManager_SetProgressCallback(CanManager* mgr, progressCallback cb) {
+    if (mgr) mgr->progressCallback = cb;
 }
 
-static void appendLog(CanManager* mgr, const char* msg) {
+static void logMsg(CanManager* mgr, const char* msg) {
     if (mgr && mgr->msgCallback) mgr->msgCallback(msg);
 }
 
-static int ensureDriverLoaded(CanManager* mgr) {
-    if (PcanLoader_IsLoaded()) return 1;
-    if (!PcanLoader_Load()) {
-        appendLog(mgr, "PCANBasic.dll 不存在，请安装 PCAN 驱动");
-        return 0;
-    }
-    return 1;
+static int ensureDriver(CanManager* mgr) {
+    if (PcanLoader_IsLoaded() || PcanLoader_Load()) return 1;
+    logMsg(mgr, "PCANBasic.dll 不存在，请安装 PCAN 驱动");
+    return 0;
+}
+
+static int checkChannel(CanManager* mgr) {
+    if (mgr->channel != PCAN_NONEBUS) return 1;
+    logMsg(mgr, "CAN 未连接");
+    return 0;
 }
 
 int CanManager_Connect(CanManager* mgr, TPCANHandle channel, TPCANBaudrate baudrate) {
-    if (!mgr || !mgr->initialized) return 0;
-    if (!ensureDriverLoaded(mgr)) return 0;
-
+    if (!mgr || !ensureDriver(mgr)) return 0;
     EnterCriticalSection(&mgr->criticalSection);
-
     if (mgr->channel != PCAN_NONEBUS) {
         LeaveCriticalSection(&mgr->criticalSection);
-        appendLog(mgr, "CAN 连接已存在, 请勿重复连接");
+        logMsg(mgr, "CAN 已连接，请勿重复连接");
         return 1;
     }
-
     TPCANStatus status = Pcan_Initialize(channel, baudrate, 0, 0, 0);
     if (status != PCAN_ERROR_OK) {
         LeaveCriticalSection(&mgr->criticalSection);
-        appendLog(mgr, "CAN 初始化失败");
+        logMsg(mgr, "CAN 初始化失败");
         return 0;
     }
-
     mgr->channel = channel;
     LeaveCriticalSection(&mgr->criticalSection);
-    {
-        char logMsg[32];
-        sprintf(logMsg, "CAN(id=%xh) 连接成功", channel);
-        appendLog(mgr, logMsg);
-    }
     Pcan_FilterMessages(mgr->channel, PLATFORM_TX, PLATFORM_TX, PCAN_MODE_STANDARD);
+    char buf[32];
+    sprintf(buf, "CAN(id=%xh) 连接成功", channel);
+    logMsg(mgr, buf);
     return 1;
 }
 
 void CanManager_Disconnect(CanManager* mgr) {
-    if (!mgr || !mgr->initialized) return;
-
+    if (!mgr) return;
     EnterCriticalSection(&mgr->criticalSection);
-
-    char logMsg[64];
-    sprintf(logMsg, "CAN(id=%xh) 连接已断开", mgr->channel);
+    char buf[64];
+    sprintf(buf, "CAN(id=%xh) 连接已断开", mgr->channel);
     Pcan_Uninitialize(mgr->channel);
     mgr->channel = PCAN_NONEBUS;
     LeaveCriticalSection(&mgr->criticalSection);
-    appendLog(mgr, logMsg);
+    logMsg(mgr, buf);
 }
 
-static int CAN_WaitForResponse(CanManager* mgr, uint32_t* code, uint32_t* param, int timeoutMs) {
+static int waitResponse(CanManager* mgr, uint32_t* code, uint32_t* val, int timeoutMs) {
     TPCANMsg msg;
-    TPCANTimestamp timestamp;
-    DWORD startTime = GetTickCount();
-
-    while ((int)(GetTickCount() - startTime) < timeoutMs) {
-        TPCANStatus status = Pcan_Read(mgr->channel, &msg, &timestamp);
-        if (status == PCAN_ERROR_OK && msg.ID == PLATFORM_TX) {
-            can_frame_t* frame = (can_frame_t*)msg.DATA;
-            *code = frame->code;
-            *param = frame->val;
+    TPCANTimestamp ts;
+    DWORD start = GetTickCount();
+    while ((int)(GetTickCount() - start) < timeoutMs) {
+        TPCANStatus st = Pcan_Read(mgr->channel, &msg, &ts);
+        if (st == PCAN_ERROR_OK && msg.ID == PLATFORM_TX) {
+            can_frame_t* f = (can_frame_t*)msg.DATA;
+            *code = f->code;
+            *val = f->val;
             return 1;
-        } else if (status == PCAN_ERROR_QRCVEMPTY) {
+        } else if (st == PCAN_ERROR_QRCVEMPTY) {
             Sleep(1);
         }
     }
@@ -117,231 +104,156 @@ static int CAN_WaitForResponse(CanManager* mgr, uint32_t* code, uint32_t* param,
 }
 
 uint32_t CanManager_GetFirmwareVersion(CanManager* mgr) {
-    if (!mgr || !mgr->initialized) return 0;
-
+    if (!mgr || !checkChannel(mgr)) return 0;
     EnterCriticalSection(&mgr->criticalSection);
-
-    if (mgr->channel == PCAN_NONEBUS) {
+    TPCANMsg msg = {.ID = PLATFORM_RX, .MSGTYPE = PCAN_MODE_STANDARD, .LEN = 8};
+    ((can_frame_t*)msg.DATA)->code = BOARD_VERSION;
+    if (Pcan_Write(mgr->channel, &msg) != PCAN_ERROR_OK) {
         LeaveCriticalSection(&mgr->criticalSection);
-        appendLog(mgr, "CAN已断开连接, 请重新连接");
+        logMsg(mgr, "CAN 发送失败");
         return 0;
     }
-
-    TPCANMsg msg;
-    msg.ID = PLATFORM_RX;
-    msg.MSGTYPE = PCAN_MODE_STANDARD;
-    msg.LEN = 8;
-    memset(msg.DATA, 0, 8);
-
-    can_frame_t* frame = (can_frame_t*)msg.DATA;
-    frame->code = BOARD_VERSION;
-
-    TPCANStatus status = Pcan_Write(mgr->channel, &msg);
-    if (status != PCAN_ERROR_OK) {
-        LeaveCriticalSection(&mgr->criticalSection);
-        appendLog(mgr, "CAN 发送失败");
-        return 0;
-    }
-
     uint32_t code, version;
-    if (!CAN_WaitForResponse(mgr, &code, &version, 5000)) {
+    if (!waitResponse(mgr, &code, &version, 5000)) {
         LeaveCriticalSection(&mgr->criticalSection);
-        appendLog(mgr, "CAN 读取失败，超时！！");
+        logMsg(mgr, "CAN 读取超时");
         return 0;
     }
-
     if (code == FW_CODE_VERSION) {
         char buf[64];
         sprintf(buf, "固件版本: v%u.%u.%u", (version >> 24) & 0xFF,
                 (version >> 16) & 0xFF, (version >> 8) & 0xFF);
-        appendLog(mgr, buf);
+        logMsg(mgr, buf);
         LeaveCriticalSection(&mgr->criticalSection);
         return version;
     }
-
     LeaveCriticalSection(&mgr->criticalSection);
-    appendLog(mgr, "CAN 读取失败，数据错误！！");
+    logMsg(mgr, "CAN 读取数据错误");
     return 0;
 }
 
 int CanManager_BoardReboot(CanManager* mgr) {
-    if (!mgr || !mgr->initialized) return 0;
-
+    if (!mgr || !checkChannel(mgr)) return 0;
     EnterCriticalSection(&mgr->criticalSection);
-
-    if (mgr->channel == PCAN_NONEBUS) {
-        LeaveCriticalSection(&mgr->criticalSection);
-        appendLog(mgr, "CAN已断开连接, 请重新连接");
-        return 0;
-    }
-
-    TPCANMsg msg;
-    msg.ID = PLATFORM_RX;
-    msg.MSGTYPE = PCAN_MODE_STANDARD;
-    msg.LEN = 8;
-    memset(msg.DATA, 0, 8);
-
-    can_frame_t* frame = (can_frame_t*)msg.DATA;
-    frame->code = BOARD_REBOOT;
-
-    TPCANStatus status = Pcan_Write(mgr->channel, &msg);
+    TPCANMsg msg = {.ID = PLATFORM_RX, .MSGTYPE = PCAN_MODE_STANDARD, .LEN = 8};
+    ((can_frame_t*)msg.DATA)->code = BOARD_REBOOT;
+    TPCANStatus st = Pcan_Write(mgr->channel, &msg);
     LeaveCriticalSection(&mgr->criticalSection);
-
-    if (status != PCAN_ERROR_OK) {
-        appendLog(mgr, "CAN 发送失败");
+    if (st != PCAN_ERROR_OK) {
+        logMsg(mgr, "CAN 发送失败");
         return 0;
     }
-
     return 1;
 }
 
-// PCAN 固件升级
 static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int testMode) {
-    char logMsg[256];
-
+    char log[256];
     HANDLE hFile = CreateFileW(fileName, GENERIC_READ, FILE_SHARE_READ, NULL,
                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
-        WideCharToMultiByte(CP_UTF8, 0, fileName, -1, logMsg + 20, 200, NULL, NULL);
-        sprintf(logMsg, "无法打开文件: %s", logMsg + 20);
-        appendLog(mgr, logMsg);
+        WideCharToMultiByte(CP_UTF8, 0, fileName, -1, log + 20, 200, NULL, NULL);
+        sprintf(log, "无法打开文件: %s", log + 20);
+        logMsg(mgr, log);
         return 0;
     }
-
     DWORD fileSize = GetFileSize(hFile, NULL);
-    sprintf(logMsg, "开始固件升级, 固件大小: %u 字节", fileSize);
-    appendLog(mgr, logMsg);
+    sprintf(log, "固件大小: %u 字节", fileSize);
+    logMsg(mgr, log);
 
-    TPCANMsg msg;
-    msg.ID = PLATFORM_RX;
-    msg.MSGTYPE = PCAN_MODE_STANDARD;
-    msg.LEN = 8;
-    memset(msg.DATA, 0, 8);
+    TPCANMsg msg = {.ID = PLATFORM_RX, .MSGTYPE = PCAN_MODE_STANDARD, .LEN = 8};
+    ((can_frame_t*)msg.DATA)->code = BOARD_START_UPDATE;
+    ((can_frame_t*)msg.DATA)->val = fileSize;
 
-    can_frame_t* frame = (can_frame_t*)msg.DATA;
-    frame->code = BOARD_START_UPDATE;
-    frame->val = fileSize;
-
-    TPCANStatus status = Pcan_Write(mgr->channel, &msg);
-    if (status != PCAN_ERROR_OK) {
+    if (Pcan_Write(mgr->channel, &msg) != PCAN_ERROR_OK) {
         CloseHandle(hFile);
-        appendLog(mgr, "发送固件大小失败");
+        logMsg(mgr, "发送固件大小失败");
         return 0;
     }
-
     uint32_t code, offset;
-    if (!CAN_WaitForResponse(mgr, &code, &offset, 15000)) {
+    if (!waitResponse(mgr, &code, &offset, 15000)) {
         CloseHandle(hFile);
-        appendLog(mgr, "Flash擦除超时");
+        logMsg(mgr, "Flash 擦除超时");
         return 0;
     }
-
     if (code != FW_CODE_OFFSET || offset != 0) {
         CloseHandle(hFile);
-        sprintf(logMsg, "Flash擦除失败: code(%u), offset(%u)", code, offset);
-        appendLog(mgr, logMsg);
+        sprintf(log, "Flash 擦除失败: code(%u), offset(%u)", code, offset);
+        logMsg(mgr, log);
         return 0;
     }
-
-    DWORD bytesSent = 0;
-    DWORD bytesRead;
-
+    DWORD bytesSent = 0, bytesRead;
     msg.ID = FW_DATA_RX;
     while (ReadFile(hFile, msg.DATA, 8, &bytesRead, NULL) && bytesRead > 0) {
         msg.LEN = bytesRead;
         if (Pcan_Write(mgr->channel, &msg) != PCAN_ERROR_OK) {
             CloseHandle(hFile);
-            appendLog(mgr, "发送文件数据失败");
+            logMsg(mgr, "发送数据失败");
             return 0;
         }
-
         bytesSent += bytesRead;
-
         if (bytesSent % 64 == 0 || bytesSent == fileSize) {
-            if (mgr->progressCallback) {
-                int percent = (int)(bytesSent * 100 / fileSize);
-                mgr->progressCallback(percent);
-            }
-
-            if (!CAN_WaitForResponse(mgr, &code, &offset, 5000)) {
+            if (mgr->progressCallback)
+                mgr->progressCallback((int)(bytesSent * 100 / fileSize));
+            if (!waitResponse(mgr, &code, &offset, 5000)) {
                 CloseHandle(hFile);
-                appendLog(mgr, "固件更新超时!");
+                logMsg(mgr, "固件更新超时");
                 return 0;
             }
-
             if (code == FW_CODE_UPDATE_SUCCESS && offset == bytesSent) break;
             if (code != FW_CODE_OFFSET) {
                 CloseHandle(hFile);
-                sprintf(logMsg, "固件升级失败: code(%u), offset(%u)", code, offset);
-                appendLog(mgr, logMsg);
+                sprintf(log, "固件升级失败: code(%u), offset(%u)", code, offset);
+                logMsg(mgr, log);
                 return 0;
             }
         }
     }
-
     CloseHandle(hFile);
-
     if (mgr->progressCallback) mgr->progressCallback(100);
 
     msg.ID = PLATFORM_RX;
     msg.LEN = 8;
     memset(msg.DATA, 0, 8);
-    frame = (can_frame_t*)msg.DATA;
-    frame->code = BOARD_CONFIRM;
-    frame->val = testMode ? 0 : 1;
+    ((can_frame_t*)msg.DATA)->code = BOARD_CONFIRM;
+    ((can_frame_t*)msg.DATA)->val = testMode ? 0 : 1;
 
     if (Pcan_Write(mgr->channel, &msg) != PCAN_ERROR_OK) {
-        appendLog(mgr, "固件发送确认失败!");
+        logMsg(mgr, "发送确认失败");
         return 0;
     }
-
-    if (!CAN_WaitForResponse(mgr, &code, &offset, 30000)) {
-        appendLog(mgr, "固件确认超时!");
+    if (!waitResponse(mgr, &code, &offset, 30000)) {
+        logMsg(mgr, "固件确认超时");
         return 0;
     }
-
     if (code == FW_CODE_CONFIRM && offset == 0x55AA55AA) {
-        WideCharToMultiByte(CP_UTF8, 0, fileName, -1, logMsg + 20, 200, NULL, NULL);
-        sprintf(logMsg, "文件 %s 上传完成. 点击重启，板卡将在45-60秒内完成重启", logMsg + 20);
-        appendLog(mgr, logMsg);
+        WideCharToMultiByte(CP_UTF8, 0, fileName, -1, log + 20, 200, NULL, NULL);
+        sprintf(log, "文件 %s 上传完成，请重启板卡", log + 20);
+        logMsg(mgr, log);
         return 1;
-    } else if (code == FW_CODE_TRANFER_ERROR) {
-        appendLog(mgr, "固件更新失败");
     }
-
+    if (code == FW_CODE_TRANFER_ERROR) logMsg(mgr, "固件更新失败");
     return 0;
 }
 
 int CanManager_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int testMode) {
-    if (!mgr || !mgr->initialized) return 0;
-    if (!ensureDriverLoaded(mgr)) return 0;
-
+    if (!mgr || !ensureDriver(mgr) || !checkChannel(mgr)) return 0;
     EnterCriticalSection(&mgr->criticalSection);
-
-    if (mgr->channel == PCAN_NONEBUS) {
-        LeaveCriticalSection(&mgr->criticalSection);
-        appendLog(mgr, "CAN已断开连接, 请重新连接");
-        return 0;
-    }
-
     LeaveCriticalSection(&mgr->criticalSection);
-
     return PCAN_FirmwareUpgrade(mgr, fileName, testMode);
 }
 
 int CanManager_DetectDevice(CanManager* mgr, TPCANHandle* channels, int maxCount) {
+    if (!ensureDriver(mgr)) return 0;
     int count = 0;
-    char msg[64];
-    if (!ensureDriverLoaded(mgr)) return 0;
     for (int i = 0; i < 16 && count < maxCount; i++) {
-        TPCANHandle channel = PCAN_NONEBUS;
-        sprintf(msg, "devicetype=pcan_usb,controllernumber=%d", i);
-        TPCANStatus result = Pcan_LookUpChannel(msg, &channel);
-        if (result == PCAN_ERROR_OK && channel != PCAN_NONEBUS) {
-            channels[count++] = channel;
-        }
+        TPCANHandle ch = PCAN_NONEBUS;
+        char param[64];
+        sprintf(param, "devicetype=pcan_usb,controllernumber=%d", i);
+        if (Pcan_LookUpChannel(param, &ch) == PCAN_ERROR_OK && ch != PCAN_NONEBUS)
+            channels[count++] = ch;
     }
-    sprintf(msg, "查询到 %d 个可用CAN设备", count);
-    appendLog(mgr, msg);
+    char buf[64];
+    sprintf(buf, "查询到 %d 个可用 CAN 设备", count);
+    logMsg(mgr, buf);
     return count;
 }
