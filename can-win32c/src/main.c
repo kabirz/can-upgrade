@@ -365,10 +365,6 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     g_canManager = CanManager_Create();
-    if (!g_canManager) {
-        MessageBoxW(NULL, L"无法加载 PCANBasic.dll\n\n请确保 PCAN-Basic API 已安装", L"错误", MB_OK | MB_ICONERROR);
-        return 1;
-    }
 
     DialogBox(hInstance, MAKEINTRESOURCE(IDD_MAIN), NULL, DlgProc);
 

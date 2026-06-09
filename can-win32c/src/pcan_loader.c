@@ -20,6 +20,10 @@ static void ClearPointers(void) {
     Pcan_GetErrorText = NULL;
 }
 
+int PcanLoader_IsLoaded(void) {
+    return g_hPcanModule != NULL;
+}
+
 int PcanLoader_Load(void) {
     if (g_hPcanModule) return 1;
 

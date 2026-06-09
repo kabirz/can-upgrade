@@ -13,8 +13,6 @@ struct CanManager {
 };
 
 CanManager* CanManager_Create(void) {
-    if (!PcanLoader_Load()) return NULL;
-
     CanManager* mgr = (CanManager*)malloc(sizeof(CanManager));
     if (!mgr) return NULL;
 
@@ -47,8 +45,18 @@ static void appendLog(CanManager* mgr, const char* msg) {
     if (mgr && mgr->msgCallback) mgr->msgCallback(msg);
 }
 
+static int ensureDriverLoaded(CanManager* mgr) {
+    if (PcanLoader_IsLoaded()) return 1;
+    if (!PcanLoader_Load()) {
+        appendLog(mgr, "PCANBasic.dll 不存在，请安装 PCAN 驱动");
+        return 0;
+    }
+    return 1;
+}
+
 int CanManager_Connect(CanManager* mgr, TPCANHandle channel, TPCANBaudrate baudrate) {
     if (!mgr || !mgr->initialized) return 0;
+    if (!ensureDriverLoaded(mgr)) return 0;
 
     EnterCriticalSection(&mgr->criticalSection);
 
@@ -306,6 +314,7 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
 
 int CanManager_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int testMode) {
     if (!mgr || !mgr->initialized) return 0;
+    if (!ensureDriverLoaded(mgr)) return 0;
 
     EnterCriticalSection(&mgr->criticalSection);
 
@@ -323,6 +332,7 @@ int CanManager_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int tes
 int CanManager_DetectDevice(CanManager* mgr, TPCANHandle* channels, int maxCount) {
     int count = 0;
     char msg[64];
+    if (!ensureDriverLoaded(mgr)) return 0;
     for (int i = 0; i < 16 && count < maxCount; i++) {
         TPCANHandle channel = PCAN_NONEBUS;
         sprintf(msg, "devicetype=pcan_usb,controllernumber=%d", i);
