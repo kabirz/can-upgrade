@@ -58,13 +58,6 @@ int CanManager_Connect(CanManager* mgr, TPCANHandle channel, TPCANBaudrate baudr
         return 1;
     }
 
-    if (channel == VIRTUAL_CAN_CHANNEL) {
-        mgr->channel = channel;
-        LeaveCriticalSection(&mgr->criticalSection);
-        appendLog(mgr, "虚拟 CAN 连接成功 (测试模式)");
-        return 1;
-    }
-
     TPCANStatus status = Pcan_Initialize(channel, baudrate, 0, 0, 0);
     if (status != PCAN_ERROR_OK) {
         LeaveCriticalSection(&mgr->criticalSection);
@@ -89,12 +82,8 @@ void CanManager_Disconnect(CanManager* mgr) {
     EnterCriticalSection(&mgr->criticalSection);
 
     char logMsg[64];
-    if (mgr->channel == VIRTUAL_CAN_CHANNEL) {
-        sprintf(logMsg, "虚拟 CAN 连接已断开");
-    } else {
-        sprintf(logMsg, "CAN(id=%xh) 连接已断开", mgr->channel);
-        Pcan_Uninitialize(mgr->channel);
-    }
+    sprintf(logMsg, "CAN(id=%xh) 连接已断开", mgr->channel);
+    Pcan_Uninitialize(mgr->channel);
     mgr->channel = PCAN_NONEBUS;
     LeaveCriticalSection(&mgr->criticalSection);
     appendLog(mgr, logMsg);
@@ -128,12 +117,6 @@ uint32_t CanManager_GetFirmwareVersion(CanManager* mgr) {
         LeaveCriticalSection(&mgr->criticalSection);
         appendLog(mgr, "CAN已断开连接, 请重新连接");
         return 0;
-    }
-
-    if (mgr->channel == VIRTUAL_CAN_CHANNEL) {
-        appendLog(mgr, "固件版本: v1.0.0 (虚拟 CAN)");
-        LeaveCriticalSection(&mgr->criticalSection);
-        return 0x01000000;
     }
 
     TPCANMsg msg;
@@ -184,12 +167,6 @@ int CanManager_BoardReboot(CanManager* mgr) {
         return 0;
     }
 
-    if (mgr->channel == VIRTUAL_CAN_CHANNEL) {
-        appendLog(mgr, "虚拟板卡重启成功");
-        LeaveCriticalSection(&mgr->criticalSection);
-        return 1;
-    }
-
     TPCANMsg msg;
     msg.ID = PLATFORM_RX;
     msg.MSGTYPE = PCAN_MODE_STANDARD;
@@ -210,70 +187,7 @@ int CanManager_BoardReboot(CanManager* mgr) {
     return 1;
 }
 
-static int VirtualCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName) {
-    char logMsg[256];
-    appendLog(mgr, "虚拟 CAN 模式：模拟固件升级...");
-
-    HANDLE hSrcFile = CreateFileW(fileName, GENERIC_READ, FILE_SHARE_READ, NULL,
-                                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hSrcFile == INVALID_HANDLE_VALUE) {
-        appendLog(mgr, "无法打开源固件文件");
-        return 0;
-    }
-
-    char outputFileName[256];
-    GetModuleFileNameA(NULL, outputFileName, 256);
-    char* lastSlash = strrchr(outputFileName, '\\');
-    if (lastSlash) *(lastSlash + 1) = '\0';
-    strcat(outputFileName, "virtual_firmware.bin");
-
-    HANDLE hDstFile = CreateFileA(outputFileName, GENERIC_WRITE, 0, NULL,
-                                  CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hDstFile == INVALID_HANDLE_VALUE) {
-        CloseHandle(hSrcFile);
-        appendLog(mgr, "无法创建输出文件");
-        return 0;
-    }
-
-    DWORD fileSize = GetFileSize(hSrcFile, NULL);
-    sprintf(logMsg, "开始固件升级, 固件大小: %u 字节", fileSize);
-    appendLog(mgr, logMsg);
-    appendLog(mgr, "输出文件: virtual_firmware.bin");
-
-    Sleep(500);
-    appendLog(mgr, "Flash 擦除完成");
-
-    BYTE buffer[4096];
-    DWORD bytesRead, bytesWritten;
-    DWORD totalBytes = 0;
-
-    while (ReadFile(hSrcFile, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
-        WriteFile(hDstFile, buffer, bytesRead, &bytesWritten, NULL);
-        totalBytes += bytesRead;
-
-        if (totalBytes % 64 == 0 || totalBytes == fileSize) {
-            if (mgr->progressCallback) {
-                int percent = (int)(totalBytes * 100 / fileSize);
-                mgr->progressCallback(percent);
-            }
-            if (totalBytes % 1024 == 0) Sleep(10);
-        }
-    }
-
-    CloseHandle(hSrcFile);
-    CloseHandle(hDstFile);
-
-    Sleep(200);
-    appendLog(mgr, "固件发送完成");
-    Sleep(200);
-    appendLog(mgr, "固件确认完成");
-
-    sprintf(logMsg, "虚拟固件已保存到: %s", outputFileName);
-    appendLog(mgr, logMsg);
-
-    return 1;
-}
-
+// PCAN 固件升级
 static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int testMode) {
     char logMsg[256];
 
@@ -403,11 +317,7 @@ int CanManager_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int tes
 
     LeaveCriticalSection(&mgr->criticalSection);
 
-    if (mgr->channel == VIRTUAL_CAN_CHANNEL) {
-        return VirtualCAN_FirmwareUpgrade(mgr, fileName);
-    } else {
-        return PCAN_FirmwareUpgrade(mgr, fileName, testMode);
-    }
+    return PCAN_FirmwareUpgrade(mgr, fileName, testMode);
 }
 
 int CanManager_DetectDevice(CanManager* mgr, TPCANHandle* channels, int maxCount) {

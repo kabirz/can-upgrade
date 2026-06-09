@@ -105,12 +105,6 @@ void getDeviceList(HWND hwnd) {
         SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)buf);
     }
 
-    if (g_channelCount < MAX_DEVICES) {
-        SendMessage(hChannel, CB_ADDSTRING, 0, (LPARAM)L"虚拟 CAN (测试模式)");
-        g_channels[g_channelCount] = VIRTUAL_CAN_CHANNEL;
-        g_channelCount++;
-    }
-
     if (SendMessage(hChannel, CB_GETCOUNT, 0, 0) > 0) {
         SendMessage(hChannel, CB_SETCURSEL, 0, 0);
     }
