@@ -7,7 +7,7 @@ use std::time::Duration;
 
 pub enum CanCommand {
     RefreshDevices,
-    Connect { device_id: String },
+    Connect { device_id: String, baud_idx: usize },
     Disconnect,
     GetVersion,
     Reboot,
@@ -67,12 +67,12 @@ fn can_worker(rx: std::sync::mpsc::Receiver<CanCommand>) {
                 let devices = manager.detect_devices();
                 push_event(CanEvent::DeviceList(devices));
             }
-            CanCommand::Connect { device_id } => {
+            CanCommand::Connect { device_id, baud_idx } => {
                 if device_id.is_empty() {
                     push_event(CanEvent::Error("无效的设备".into()));
                     continue;
                 }
-                match manager.connect(&device_id) {
+                match manager.connect(&device_id, baud_idx) {
                     Ok(()) => push_event(CanEvent::Connected),
                     Err(e) => push_event(CanEvent::Error(e)),
                 }
@@ -209,7 +209,8 @@ pub fn App() -> Element {
         } else {
             let idx = *selected_device.read();
             let device_id = devices.read().get(idx).map(|d| d.id.clone()).unwrap_or_default();
-            let _ = tx.send(CanCommand::Connect { device_id });
+            let baud_idx = *selected_baud.read();
+            let _ = tx.send(CanCommand::Connect { device_id, baud_idx });
         }
     };
 

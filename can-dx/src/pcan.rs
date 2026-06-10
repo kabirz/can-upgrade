@@ -11,38 +11,12 @@ use libloading::Library;
 
 pub const PCAN_NONEBUS: u16 = 0x00;
 
-// PCAN-USB channel handles
-pub const PCAN_USBBUS1: u16 = 0x51;
-pub const PCAN_USBBUS2: u16 = 0x52;
-pub const PCAN_USBBUS3: u16 = 0x53;
-pub const PCAN_USBBUS4: u16 = 0x54;
-pub const PCAN_USBBUS5: u16 = 0x55;
-pub const PCAN_USBBUS6: u16 = 0x56;
-pub const PCAN_USBBUS7: u16 = 0x57;
-pub const PCAN_USBBUS8: u16 = 0x58;
+
 
 // Error codes
 pub const PCAN_ERROR_OK: u32 = 0x00000;
-pub const PCAN_ERROR_QRCVEMPTY: u32 = 0x00020;
 
-// CAN IDs for our protocol
-pub const PLATFORM_RX: u32 = 0x101; // Host → Board (commands)
-pub const PLATFORM_TX: u32 = 0x102; // Board → Host (responses)
-pub const FW_DATA_RX: u32 = 0x103; // Host → Board (firmware data)
 
-// Board commands
-pub const BOARD_START_UPDATE: u32 = 0;
-pub const BOARD_CONFIRM: u32 = 1;
-pub const BOARD_VERSION: u32 = 2;
-pub const BOARD_REBOOT: u32 = 3;
-
-// Firmware response codes
-pub const FW_CODE_OFFSET: u32 = 0;
-pub const FW_CODE_UPDATE_SUCCESS: u32 = 1;
-pub const FW_CODE_VERSION: u32 = 2;
-pub const FW_CODE_CONFIRM: u32 = 3;
-pub const FW_CODE_FLASH_ERROR: u32 = 4;
-pub const FW_CODE_TRANFER_ERROR: u32 = 5;
 
 // Baudrate constants
 pub const PCAN_BAUD_1M: u16 = 0x0014;
@@ -84,30 +58,7 @@ pub struct TPCANTimestamp {
     pub micros: u16,            // Microseconds: 0..999
 }
 
-/// CAN frame used in our upgrade protocol (embedded in msg.data)
-#[repr(C)]
-#[derive(Clone, Debug)]
-pub struct CanFrame {
-    pub code: u32,
-    pub val: u32,
-}
-
 impl TPCANMsg {
-    pub fn new_command(id: u32, code: u32, val: u32) -> Self {
-        let mut msg = TPCANMsg {
-            id,
-            msgtype: PCAN_MODE_STANDARD,
-            len: 8,
-            data: [0u8; 8],
-        };
-        let frame = CanFrame { code, val };
-        let bytes = unsafe {
-            std::mem::transmute::<CanFrame, [u8; 8]>(frame)
-        };
-        msg.data = bytes;
-        msg
-    }
-
     pub fn new_data(id: u32, buf: &[u8]) -> Self {
         let mut data = [0u8; 8];
         let len = buf.len().min(8);
@@ -120,15 +71,6 @@ impl TPCANMsg {
         }
     }
 
-    pub fn parse_can_frame(&self) -> Option<(u32, u32)> {
-        if self.len >= 8 {
-            let bytes: [u8; 8] = self.data;
-            let frame: CanFrame = unsafe { std::mem::transmute(bytes) };
-            Some((frame.code, frame.val))
-        } else {
-            None
-        }
-    }
 }
 
 // ── Baudrate helpers ────────────────────────────────────────

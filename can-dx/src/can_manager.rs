@@ -143,7 +143,7 @@ impl CanManager {
 
     // ── Connect / Disconnect ─────────────────────────────
 
-    pub fn connect(&mut self, device_id: &str) -> Result<(), String> {
+    pub fn connect(&mut self, device_id: &str, baud_idx: usize) -> Result<(), String> {
         if self.connected {
             return Err("已经连接".into());
         }
@@ -152,31 +152,32 @@ impl CanManager {
             #[cfg(target_os = "windows")]
             {
                 let channel: u16 = ch.parse().map_err(|_| "无效的 PCAN 通道".to_string())?;
-                return self.connect_pcan(channel);
+                return self.connect_pcan(channel, baud_idx);
             }
             #[cfg(not(target_os = "windows"))]
             return Err("PCAN 仅支持 Windows".into());
         }
 
-        if let Some(_ifname) = device_id.strip_prefix("socketcan:") {
+        if let Some(ifname) = device_id.strip_prefix("socketcan:") {
             #[cfg(target_os = "linux")]
-            {
-                return self.connect_socketcan(ifname);
-            }
+            return self.connect_socketcan(ifname);
             #[cfg(not(target_os = "linux"))]
-            return Err("SocketCAN 仅支持 Linux".into());
+            {
+                let _ = ifname;
+                return Err("SocketCAN 仅支持 Linux".into());
+            }
         }
 
         Err(format!("未知的设备类型: {}", device_id))
     }
 
     #[cfg(target_os = "windows")]
-    fn connect_pcan(&mut self, channel: u16) -> Result<(), String> {
+    fn connect_pcan(&mut self, channel: u16, baud_idx: usize) -> Result<(), String> {
         use crate::pcan::*;
         let dll_arc = self.pcan_dll.as_ref().ok_or("PCAN 驱动未初始化")?.clone();
         let dll = dll_arc.lock().map_err(|e| format!("锁错误: {}", e))?;
 
-        let baudrate = BAUD_RATES[5];
+        let baudrate = BAUD_RATES[baud_idx];
         let status = dll.initialize(channel, baudrate);
         if status != PCAN_ERROR_OK {
             return Err(format!("CAN 初始化失败, 状态码: 0x{:X}", status));
@@ -282,7 +283,7 @@ impl CanManager {
                 if status == PCAN_ERROR_OK {
                     return Some((msg.id, msg.data, msg.len));
                 }
-                std::thread::sleep(Duration::from_millis(1));
+                std::thread::sleep(Duration::from_millis(10));
             }
         }
 
