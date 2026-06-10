@@ -18,9 +18,6 @@ pub const FW_CODE_CONFIRM: u32 = 3;
 pub const FW_CODE_FLASH_ERROR: u32 = 4;
 pub const FW_CODE_TRANFER_ERROR: u32 = 5;
 
-pub const VIRTUAL_CHANNEL_ID: &str = "__virtual__";
-const VIRTUAL_VERSION: u32 = 0x01000000;
-
 #[derive(Clone)]
 pub struct DeviceEntry {
     pub id: String,
@@ -89,7 +86,7 @@ impl CanManager {
                 self.log("PCANBasic.dll 加载成功");
             }
             Err(e) => {
-                self.log(&format!("PCANBasic.dll 加载失败: {} (仅虚拟 CAN 可用)", e));
+                self.log(&format!("PCANBasic.dll 加载失败: {}", e));
             }
         }
     }
@@ -98,7 +95,7 @@ impl CanManager {
     pub fn init_backend(&mut self) {
         let ifaces = crate::socketcan::SocketCanBus::list_interfaces();
         if ifaces.is_empty() {
-            self.log("未检测到 SocketCAN 接口 (仅虚拟 CAN 可用)");
+            self.log("未检测到 SocketCAN 接口");
         } else {
             for iface in &ifaces {
                 self.log(&format!("检测到 CAN 接口: {}", iface));
@@ -140,11 +137,6 @@ impl CanManager {
             }
         }
 
-        devices.push(DeviceEntry {
-            id: VIRTUAL_CHANNEL_ID.to_string(),
-            name: "虚拟 CAN (测试模式)".to_string(),
-        });
-
         self.log(&format!("查询到 {} 个可用 CAN 设备", devices.len()));
         devices
     }
@@ -156,14 +148,7 @@ impl CanManager {
             return Err("已经连接".into());
         }
 
-        if device_id == VIRTUAL_CHANNEL_ID {
-            self.connected = true;
-            self.connected_channel = VIRTUAL_CHANNEL_ID.to_string();
-            self.log("虚拟 CAN 连接成功 (测试模式)");
-            return Ok(());
-        }
-
-        if let Some(_ch) = device_id.strip_prefix("pcan:") {
+        if let Some(ch) = device_id.strip_prefix("pcan:") {
             #[cfg(target_os = "windows")]
             {
                 let channel: u16 = ch.parse().map_err(|_| "无效的 PCAN 通道".to_string())?;
@@ -173,7 +158,7 @@ impl CanManager {
             return Err("PCAN 仅支持 Windows".into());
         }
 
-        if let Some(ifname) = device_id.strip_prefix("socketcan:") {
+        if let Some(_ifname) = device_id.strip_prefix("socketcan:") {
             #[cfg(target_os = "linux")]
             {
                 return self.connect_socketcan(ifname);
@@ -191,7 +176,7 @@ impl CanManager {
         let dll_arc = self.pcan_dll.as_ref().ok_or("PCAN 驱动未初始化")?.clone();
         let dll = dll_arc.lock().map_err(|e| format!("锁错误: {}", e))?;
 
-        let baudrate = BAUD_RATES[3];
+        let baudrate = BAUD_RATES[5];
         let status = dll.initialize(channel, baudrate);
         if status != PCAN_ERROR_OK {
             return Err(format!("CAN 初始化失败, 状态码: 0x{:X}", status));
@@ -226,7 +211,7 @@ impl CanManager {
         #[cfg(target_os = "windows")]
         if label.starts_with("pcan:") {
             if let Some(ref dll_arc) = self.pcan_dll {
-                if let Ok(ch) = label.strip_prefix("pcan:").and_then(|s| s.parse::<u16>().ok()) {
+                if let Some(ch) = label.strip_prefix("pcan:").and_then(|s| s.parse::<u16>().ok()) {
                     if let Ok(dll) = dll_arc.lock() {
                         dll.uninitialize(ch);
                     }
@@ -240,12 +225,7 @@ impl CanManager {
         }
 
         self.connected = false;
-
-        if label == VIRTUAL_CHANNEL_ID {
-            self.log("虚拟 CAN 连接已断开");
-        } else {
-            self.log(&format!("{} 连接已断开", label));
-        }
+        self.log(&format!("{} 连接已断开", label));
     }
 
     // ── CAN communication ───────────────────────────────
@@ -338,10 +318,6 @@ impl CanManager {
         if !self.connected {
             return Err("CAN 已断开连接, 请重新连接".into());
         }
-        if self.connected_channel == VIRTUAL_CHANNEL_ID {
-            self.log("固件版本: v1.0.0 (虚拟 CAN)");
-            return Ok(VIRTUAL_VERSION);
-        }
         self.send_command(BOARD_VERSION, 0)?;
         match self.wait_for_response(5000) {
             Some((FW_CODE_VERSION, version)) => {
@@ -362,10 +338,6 @@ impl CanManager {
         if !self.connected {
             return Err("CAN 已断开连接, 请重新连接".into());
         }
-        if self.connected_channel == VIRTUAL_CHANNEL_ID {
-            self.log("虚拟板卡重启成功");
-            return Ok(());
-        }
         self.send_command(BOARD_REBOOT, 0)?;
         self.log("重启命令已发送");
         Ok(())
@@ -377,10 +349,6 @@ impl CanManager {
         if !self.connected {
             return Err("CAN 已断开连接, 请重新连接".into());
         }
-        if self.connected_channel == VIRTUAL_CHANNEL_ID {
-            return self.virtual_firmware_upgrade(file_path);
-        }
-
         let firmware_data = std::fs::read(file_path)
             .map_err(|e| format!("无法打开文件: {}", e))?;
         let file_size = firmware_data.len();
@@ -423,44 +391,5 @@ impl CanManager {
             Some((code, val)) => Err(format!("固件确认失败: code({}), val(0x{:X})", code, val)),
             None => Err("固件确认超时!".into()),
         }
-    }
-
-    fn virtual_firmware_upgrade(&mut self, file_path: &str) -> Result<(), String> {
-        self.log("虚拟 CAN 模式: 模拟固件升级...");
-        let src_data = std::fs::read(file_path)
-            .map_err(|e| format!("无法打开源固件文件: {}", e))?;
-        let file_size = src_data.len();
-        self.log(&format!("固件大小: {} 字节", file_size));
-
-        let output_path = std::env::current_exe()
-            .ok()
-            .and_then(|p| p.parent().map(|p| p.join("virtual_firmware.bin")))
-            .unwrap_or_else(|| std::path::PathBuf::from("virtual_firmware.bin"));
-        self.log(&format!("输出文件: {}", output_path.display()));
-
-        std::thread::sleep(Duration::from_millis(500));
-        self.log("Flash 擦除完成");
-
-        let total = src_data.len();
-        for (i, _chunk) in src_data.chunks(4096).enumerate() {
-            let processed = ((i + 1) * 4096).min(total);
-            if processed % 64 == 0 || processed == total {
-                self.progress((processed * 100 / total) as u8);
-            }
-            if processed % 1024 == 0 {
-                std::thread::sleep(Duration::from_millis(10));
-            }
-        }
-
-        std::fs::write(&output_path, &src_data)
-            .map_err(|e| format!("写入输出文件失败: {}", e))?;
-        self.progress(100);
-
-        std::thread::sleep(Duration::from_millis(200));
-        self.log("固件发送完成");
-        std::thread::sleep(Duration::from_millis(200));
-        self.log("固件确认完成");
-        self.log(&format!("虚拟固件已保存到: {}", output_path.display()));
-        Ok(())
     }
 }

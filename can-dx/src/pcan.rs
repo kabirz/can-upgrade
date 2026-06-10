@@ -44,8 +44,6 @@ pub const FW_CODE_CONFIRM: u32 = 3;
 pub const FW_CODE_FLASH_ERROR: u32 = 4;
 pub const FW_CODE_TRANFER_ERROR: u32 = 5;
 
-pub const VIRTUAL_CAN_CHANNEL: u16 = 0xFFFF;
-
 // Baudrate constants
 pub const PCAN_BAUD_1M: u16 = 0x0014;
 pub const PCAN_BAUD_800K: u16 = 0x0016;
