@@ -11,28 +11,18 @@ use libloading::Library;
 
 pub const PCAN_NONEBUS: u16 = 0x00;
 
-
-
 // Error codes
 pub const PCAN_ERROR_OK: u32 = 0x00000;
 
-
-
-// Baudrate constants
+// Baudrate constants (used in BAUD_RATES)
 pub const PCAN_BAUD_1M: u16 = 0x0014;
-pub const PCAN_BAUD_800K: u16 = 0x0016;
 pub const PCAN_BAUD_500K: u16 = 0x001C;
 pub const PCAN_BAUD_250K: u16 = 0x011C;
 pub const PCAN_BAUD_125K: u16 = 0x031C;
 pub const PCAN_BAUD_100K: u16 = 0x432F;
-pub const PCAN_BAUD_95K: u16 = 0xC34E;
-pub const PCAN_BAUD_83K: u16 = 0x852B;
 pub const PCAN_BAUD_50K: u16 = 0x472F;
-pub const PCAN_BAUD_47K: u16 = 0x1414;
-pub const PCAN_BAUD_33K: u16 = 0x8B2F;
 pub const PCAN_BAUD_20K: u16 = 0x532F;
 pub const PCAN_BAUD_10K: u16 = 0x672F;
-pub const PCAN_BAUD_5K: u16 = 0x7F7F;
 
 pub const PCAN_MODE_STANDARD: u8 = 0x00;
 pub const PCAN_USB: u8 = 0x05;
@@ -86,7 +76,7 @@ pub const BAUD_RATES: &[u16] = &[
     PCAN_BAUD_1M,
 ];
 
-pub const BAUD_NAMES: &[&str] = &[
+pub const BAUD_RATE_NAMES: &[&str] = &[
     "10 Kbit/s",
     "20 Kbit/s",
     "50 Kbit/s",
@@ -96,6 +86,8 @@ pub const BAUD_NAMES: &[&str] = &[
     "500 Kbit/s",
     "1000 Kbit/s",
 ];
+
+
 
 // ── Dynamic Library Loader ──────────────────────────────────
 

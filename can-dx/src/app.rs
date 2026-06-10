@@ -21,7 +21,6 @@ pub enum CanEvent {
     Disconnected,
     DeviceList(Vec<DeviceEntry>),
     Version(u32),
-    #[allow(dead_code)]
     FlashResult(bool),
     Error(String),
 }
@@ -121,13 +120,13 @@ pub fn App() -> Element {
     let mut connected = use_signal(|| false);
     let mut selected_device = use_signal(|| 0usize);
     let mut selected_baud = use_signal(|| 5usize);
-    let firmware_path = use_signal(String::new);
+    let mut firmware_path = use_signal(String::new);
     let mut test_mode = use_signal(|| false);
     let mut version_str = use_signal(|| "未获取".to_string());
     let mut is_updating = use_signal(|| false);
     let mut is_version_querying = use_signal(|| false);
 
-    let baud_rates: &[&str] = &pcan::BAUD_NAMES;
+    let baud_rates: &[&str] = pcan::BAUD_RATE_NAMES;
 
     let mut cmd_tx = use_signal(|| {
         let (tx, rx) = mpsc::channel::<CanCommand>();
@@ -135,7 +134,7 @@ pub fn App() -> Element {
         tx
     });
 
-    let ts = || chrono::Local::now().format("[%H:%M:%S] ").to_string();
+    let timestamp = || chrono::Local::now().format("[%H:%M:%S] ").to_string();
 
     use_future(move || async move {
         loop {
@@ -143,7 +142,7 @@ pub fn App() -> Element {
             for evt in events {
                 match evt {
                     CanEvent::Log(msg) => {
-                        log_lines.write().push(ts() + &msg);
+                        log_lines.write().push(timestamp() + &msg);
                     }
                     CanEvent::Progress(pct) => {
                         progress.set(pct);
@@ -188,7 +187,7 @@ pub fn App() -> Element {
                         }
                     }
                     CanEvent::Error(e) => {
-                        log_lines.write().push(ts() + &format!("错误: {}", e));
+                        log_lines.write().push(timestamp() + &format!("错误: {}", e));
                         is_updating.set(false);
                         is_version_querying.set(false);
                     }
@@ -251,19 +250,6 @@ pub fn App() -> Element {
     let on_clear_log = move |_| {
         log_lines.write().clear();
     };
-
-    let mut firmware_path_clone = firmware_path.clone();
-    let mut on_browse_inner = move || {
-        if let Some(path) = rfd::FileDialog::new()
-            .add_filter("固件文件", &["bin"])
-            .add_filter("所有文件", &["*"])
-            .set_title("选择固件文件")
-            .pick_file()
-        {
-            firmware_path_clone.set(path.to_string_lossy().to_string());
-        }
-    };
-
 
     let has_file = !firmware_path.read().is_empty();
     let can_flash = *connected.read() && has_file && !*is_updating.read();
@@ -359,7 +345,16 @@ pub fn App() -> Element {
 
                     button {
                         style: "padding: 4px 12px; border: 1px solid #888; border-radius: 4px; background: #e0e0e0; cursor: pointer;",
-                        onclick: move |_| on_browse_inner(),
+                        onclick: move |_| {
+                            if let Some(p) = rfd::FileDialog::new()
+                                .add_filter("固件文件", &["bin"])
+                                .add_filter("所有文件", &["*"])
+                                .set_title("选择固件文件")
+                                .pick_file()
+                            {
+                                firmware_path.set(p.to_string_lossy().to_string());
+                            }
+                        },
                         disabled: *is_updating.read(),
                         "浏览..."
                     }

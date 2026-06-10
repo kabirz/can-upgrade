@@ -12,12 +12,12 @@ fn make_icon() -> Option<dioxus::desktop::tao::window::Icon> {
     for y in 0..s {
         for x in 0..s {
             let i = ((y * s + x) * 4) as usize;
-            let in_body = x >= 10 && x < 22 && y >= 10 && y < 22;
-            let in_notch = x >= 10 && x < 13 && y >= 10 && y < 13;
-            let pin_top = x >= 13 && x < 19 && y >= 7 && y < 10;
-            let pin_bot = x >= 13 && x < 19 && y >= 22 && y < 25;
-            let pin_left = x >= 7 && x < 10 && y >= 13 && y < 19;
-            let pin_right = x >= 22 && x < 25 && y >= 13 && y < 19;
+            let in_body = (10..22).contains(&x) && (10..22).contains(&y);
+            let in_notch = (10..13).contains(&x) && (10..13).contains(&y);
+            let pin_top = (13..19).contains(&x) && (7..10).contains(&y);
+            let pin_bot = (13..19).contains(&x) && (22..25).contains(&y);
+            let pin_left = (7..10).contains(&x) && (13..19).contains(&y);
+            let pin_right = (22..25).contains(&x) && (13..19).contains(&y);
             if in_notch {
                 rgba[i] = 0x11; rgba[i + 1] = 0x11; rgba[i + 2] = 0x11; rgba[i + 3] = 0xFF;
             } else if in_body {

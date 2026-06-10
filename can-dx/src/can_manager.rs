@@ -16,7 +16,7 @@ pub const FW_CODE_VERSION: u32 = 2;
 pub const FW_CODE_CONFIRM: u32 = 3;
 #[allow(dead_code)]
 pub const FW_CODE_FLASH_ERROR: u32 = 4;
-pub const FW_CODE_TRANFER_ERROR: u32 = 5;
+pub const FW_CODE_TRANSFER_ERROR: u32 = 5;
 
 #[derive(Clone)]
 pub struct DeviceEntry {
@@ -368,7 +368,7 @@ impl CanManager {
         for chunk in firmware_data.chunks(8) {
             self.write_frame(FW_DATA_RX, chunk)?;
             bytes_sent += chunk.len();
-            if bytes_sent % 64 == 0 || bytes_sent == file_size {
+            if bytes_sent.is_multiple_of(64) || bytes_sent == file_size {
                 self.progress((bytes_sent * 100 / file_size) as u8);
                 match self.wait_for_response(5000) {
                     Some((FW_CODE_UPDATE_SUCCESS, offset)) if offset == bytes_sent as u32 => break,
@@ -388,7 +388,7 @@ impl CanManager {
                 self.log(&format!("固件 {} 上传完成. 点击重启，板卡将在45-60秒内完成重启", file_path));
                 Ok(())
             }
-            Some((FW_CODE_TRANFER_ERROR, _)) => Err("固件更新失败 (传输错误)".into()),
+            Some((FW_CODE_TRANSFER_ERROR, _)) => Err("固件更新失败 (传输错误)".into()),
             Some((code, val)) => Err(format!("固件确认失败: code({}), val(0x{:X})", code, val)),
             None => Err("固件确认超时!".into()),
         }
