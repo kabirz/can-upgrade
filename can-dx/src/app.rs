@@ -266,15 +266,12 @@ pub fn App() -> Element {
     let ver_color = if ver == "未获取" { "color: #8B0000;" } else { "color: #1B8A1B;" };
 
     rsx! {
-        div {
-            style: "display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; padding: 10px; background: #f0f0f0; gap: 6px;",
+        div { class: "container",
 
-            div {
-                style: "background: white; border-radius: 6px; padding: 8px 12px; border: 1px solid #ccc; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;",
+            div { class: "card toolbar",
 
                 label { "CAN 设备:" }
-                select {
-                    style: "min-width: 200px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px;",
+                select { class: "device-select",
                     disabled: *connected.read(),
                     value: "{*selected_device.read()}",
                     onchange: move |e| {
@@ -283,16 +280,12 @@ pub fn App() -> Element {
                         }
                     },
                     for (i, name) in device_names.iter().enumerate() {
-                        option {
-                            value: "{i}",
-                            "{name}"
-                        }
+                        option { value: "{i}", "{name}" }
                     }
                 }
 
                 label { "波特率:" }
-                select {
-                    style: "padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px;",
+                select { class: "baud-select",
                     disabled: *connected.read(),
                     value: "{*selected_baud.read()}",
                     onchange: move |e| {
@@ -301,50 +294,31 @@ pub fn App() -> Element {
                         }
                     },
                     for (i, name) in baud_rates.iter().enumerate() {
-                        option {
-                            value: "{i}",
-                            "{name}"
-                        }
+                        option { value: "{i}", "{name}" }
                     }
                 }
 
-                div {
-                    style: "display: flex; gap: 8px; align-items: center; margin-left: auto;",
-
-                    button {
-                        style: "padding: 4px 10px; border: 1px solid #888; border-radius: 4px; background: #e0e0e0; cursor: pointer;",
+                div { class: "pull-right",
+                    button { class: "btn",
                         disabled: *connected.read(),
                         onclick: on_refresh,
                         "刷新"
                     }
-
-                    button {
-                        style: if *connected.read() {
-                            "padding: 4px 10px; border: 1px solid #c9302c; border-radius: 4px; background: #d9534f; color: white; cursor: pointer;"
-                        } else {
-                            "padding: 4px 10px; border: 1px solid #0078d4; border-radius: 4px; background: #0078d4; color: white; cursor: pointer;"
-                        },
+                    button { class: if *connected.read() { "btn btn-danger" } else { "btn btn-primary" },
                         onclick: on_connect,
                         if *connected.read() { "断开" } else { "连接" }
                     }
                 }
             }
 
-            div {
-                style: "background: white; border-radius: 6px; padding: 8px 12px; border: 1px solid #ccc; display: flex; flex-direction: column; gap: 8px;",
+            div { class: "card firmware-card",
 
-                div {
-                    style: "display: flex; gap: 8px; align-items: center;",
-
-                    input {
-                        style: "flex: 1; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; background: #f9f9f9;",
+                div { class: "firmware-row",
+                    input { class: "input", readonly: true,
                         value: "{*firmware_path.read()}",
-                        readonly: true,
                         placeholder: "选择固件 .bin 文件...",
                     }
-
-                    button {
-                        style: "padding: 4px 12px; border: 1px solid #888; border-radius: 4px; background: #e0e0e0; cursor: pointer;",
+                    button { class: "btn",
                         onclick: move |_| {
                             if let Some(p) = rfd::FileDialog::new()
                                 .add_filter("固件文件", &["bin"])
@@ -360,53 +334,30 @@ pub fn App() -> Element {
                     }
                 }
 
-                div {
-                    style: "display: flex; gap: 8px; align-items: center; flex-wrap: wrap;",
-
-                    label {
-                        style: "font-weight: bold; min-width: 90px; color: #333;",
+                div { class: "firmware-row",
+                    label { class: "version-label",
                         "版本号: "
-                        span {
-                            style: "{ver_color}",
-                            "{ver}"
-                        }
+                        span { style: "{ver_color}", "{ver}" }
                     }
-
-                    div {
-                        style: "display: flex; gap: 8px; align-items: center; margin-left: auto;",
-
-                        button {
-                            style: "padding: 4px 12px; border: 1px solid #888; border-radius: 4px; background: #e0e0e0; cursor: pointer;",
+                    div { class: "pull-right",
+                        button { class: "btn",
                             disabled: !*connected.read() || *is_updating.read() || *is_version_querying.read(),
                             onclick: on_get_version,
                             "获取版本"
                         }
-
-                        button {
-                            style: "padding: 4px 12px; border: 1px solid #d9534f; border-radius: 4px; background: #f0ad4e; color: white; cursor: pointer;",
+                        button { class: "btn btn-warning",
                             disabled: !*connected.read() || *is_updating.read(),
                             onclick: on_reboot,
                             "重启板卡"
                         }
-
-                        label {
-                            style: "display: flex; align-items: center; gap: 4px;",
-                            input {
-                                r#type: "checkbox",
+                        label { class: "checkbox-label",
+                            input { r#type: "checkbox",
                                 checked: *test_mode.read(),
-                                oninput: move |e| {
-                                    test_mode.set(e.checked());
-                                },
+                                oninput: move |e| { test_mode.set(e.checked()); },
                             }
                             " 测试模式"
                         }
-
-                        button {
-                            style: if can_flash {
-                                "padding: 6px 20px; border: none; border-radius: 4px; background: #28a745; color: white; font-weight: bold; cursor: pointer;"
-                            } else {
-                                "padding: 6px 20px; border: none; border-radius: 4px; background: #999; color: white; font-weight: bold; cursor: not-allowed;"
-                            },
+                        button { class: "btn btn-success",
                             disabled: !can_flash,
                             onclick: on_flash,
                             if *is_updating.read() { "升级中..." } else { "开始升级" }
@@ -414,35 +365,17 @@ pub fn App() -> Element {
                     }
                 }
 
-                div {
-                    style: "margin-top: 10px; display: flex; align-items: center; gap: 8px;",
-
-                    div {
-                        style: "flex: 1; height: 24px; background: #e9ecef; border-radius: 4px; overflow: hidden; position: relative;",
-                        div {
-                            style: "height: 100%; width: {*progress.read()}%; background: linear-gradient(90deg, #0078d4, #00a8ff); transition: width 0.3s ease; border-radius: 4px;",
-                        }
-                        div {
-                            style: "position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #333; font-weight: bold;",
-                            "{*progress.read()}%"
-                        }
-                    }
+                div { class: "progress-bar",
+                    div { class: "progress-fill", style: "width: {*progress.read()}%;" }
+                    div { class: "progress-text", "{*progress.read()}%" }
                 }
             }
 
-            fieldset {
-                style: "border: 1px solid #ccc; border-radius: 6px; padding: 12px; flex: 1; display: flex; flex-direction: column; min-height: 0;",
+            fieldset { class: "fieldset",
                 legend { "日志" }
-
-                div {
-                    style: "flex: 1; overflow-y: auto; background: #f5f5f5; color: #333; padding: 8px; border-radius: 4px; font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; white-space: pre-wrap; word-break: break-all; min-height: 150px;",
-                    "{log_text}"
-                }
-
-                button {
-                    style: "margin-top: 4px; padding: 2px 10px; border: 1px solid #888; border-radius: 4px; background: #e0e0e0; cursor: pointer; align-self: flex-end;",
-                    onclick: on_clear_log,
-                    "清除"
+                div { class: "log-box", "{log_text}" }
+                div { style: "display:flex;justify-content:flex-end;margin-top:4px;",
+                    button { class: "btn btn-sm", onclick: on_clear_log, "清除" }
                 }
             }
         }

@@ -186,7 +186,7 @@ impl CanManager {
         drop(dll);
 
         self.connected = true;
-        self.connected_channel = format!("pcan:{}", channel);
+        self.connected_channel = format!("pcan:{:X}h", channel);
         self.log(&format!("CAN(id={:X}h) 连接成功", channel));
         Ok(())
     }
@@ -212,9 +212,12 @@ impl CanManager {
         #[cfg(target_os = "windows")]
         if label.starts_with("pcan:") {
             if let Some(ref dll_arc) = self.pcan_dll {
-                if let Some(ch) = label.strip_prefix("pcan:").and_then(|s| s.parse::<u16>().ok()) {
-                    if let Ok(dll) = dll_arc.lock() {
-                        dll.uninitialize(ch);
+                if let Some(ch_str) = label.strip_prefix("pcan:") {
+                    let ch_str = ch_str.trim_end_matches('h');
+                    if let Ok(ch) = u16::from_str_radix(ch_str, 16) {
+                        if let Ok(dll) = dll_arc.lock() {
+                            dll.uninitialize(ch);
+                        }
                     }
                 }
             }
@@ -226,7 +229,8 @@ impl CanManager {
         }
 
         self.connected = false;
-        self.log(&format!("{} 连接已断开", label));
+        let id_part = label.strip_prefix("pcan:").unwrap_or(&label);
+        self.log(&format!("CAN(id={}) 连接已断开", id_part));
     }
 
     // ── CAN communication ───────────────────────────────
@@ -236,7 +240,7 @@ impl CanManager {
         if let Some(ref dll_arc) = self.pcan_dll {
             use crate::pcan::*;
             let ch: u16 = self.connected_channel.strip_prefix("pcan:")
-                .and_then(|s| s.parse().ok())
+                .and_then(|s| u16::from_str_radix(s.trim_end_matches('h'), 16).ok())
                 .ok_or("未连接到 PCAN 设备")?;
             let dll = dll_arc.lock().map_err(|e| format!("锁错误: {}", e))?;
             let msg = TPCANMsg::new_data(id, data);
@@ -271,7 +275,7 @@ impl CanManager {
         if let Some(ref dll_arc) = self.pcan_dll {
             use crate::pcan::*;
             let ch = self.connected_channel.strip_prefix("pcan:")
-                .and_then(|s| s.parse().ok())?;
+                .and_then(|s| u16::from_str_radix(s.trim_end_matches('h'), 16).ok())?;
             let dll = dll_arc.lock().ok()?;
             loop {
                 if _start.elapsed().as_millis() as u64 >= timeout_ms {
