@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+    font-size: 13px;
+    background: #f5f5f5;
+    color: #333;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    gap: 8px;
+}
+.panel {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px 12px;
+}
+.panel-title {
+    font-weight: bold;
+    font-size: 13px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #eee;
+    color: #1a1a1a;
+}
+.row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.row:last-child { margin-bottom: 0; }
+label { min-width: fit-content; white-space: nowrap; font-size: 13px; }
+select, input[type="text"] {
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    background: white;
+}
+select:focus, input[type="text"]:focus { border-color: #0078d4; }
+select { min-width: 110px; }
+input[type="text"] { flex: 1; min-width: 0; }
+button {
+    padding: 4px 14px;
+    border: 1px solid #adadad;
+    border-radius: 3px;
+    background: #e1e1e1;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    white-space: nowrap;
+    outline: none;
+}
+button:hover:not(:disabled) { background: #d0d0d0; }
+button:active:not(:disabled) { background: #c0c0c0; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.primary { background: #0078d4; color: white; border-color: #0078d4; }
+button.primary:hover:not(:disabled) { background: #106ebe; }
+button.primary:active:not(:disabled) { background: #005a9e; }
+button.primary:disabled { background: #a0c4e8; border-color: #a0c4e8; }
+button.danger { background: #e81123; color: white; border-color: #e81123; }
+button.danger:hover:not(:disabled) { background: #c50f1f; }
+.progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+progress {
+    flex: 1;
+    height: 18px;
+    -webkit-appearance: none;
+    appearance: none;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    overflow: hidden;
+}
+progress::-webkit-progress-bar { background: #eaeaea; }
+progress::-webkit-progress-value { background: #0078d4; transition: width 0.2s; }
+.progress-text { min-width: 36px; text-align: right; font-size: 13px; }
+.log-section {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    min-height: 0;
+}
+.log-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+textarea {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 12px;
+    resize: none;
+    overflow-y: auto;
+    background: #fafafa;
+    outline: none;
+    line-height: 1.5;
+}
+textarea:focus { border-color: #0078d4; }
+.side-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 80px;
+}
+.version-label {
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+    padding: 4px 0;
+    word-break: break-all;
+}
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.checkbox-row input[type="checkbox"] { margin: 0; cursor: pointer; }
+.checkbox-row label { font-size: 12px; color: #555; cursor: pointer; }
+.header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.about-btn {
+    font-size: 12px;
+    padding: 2px 8px;
+    border: none;
+    background: transparent;
+    color: #0078d4;
+    cursor: pointer;
+}
+.about-btn:hover:not(:disabled) { text-decoration: underline; background: transparent; }
+
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.32);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    min-width: 320px;
+    max-width: 420px;
+    overflow: hidden;
+    animation: modalIn 0.15s ease-out;
+}
+@keyframes modalIn {
+    from { transform: translateY(-12px) scale(0.97); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+.modal-icon {
+    display: flex;
+    justify-content: center;
+    padding: 20px 0 0;
+}
+.modal-icon svg { width: 40px; height: 40px; }
+.modal-body {
+    padding: 12px 24px 8px;
+    text-align: center;
+}
+.modal-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 6px;
+}
+.modal-msg {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.6;
+    white-space: pre-line;
+}
+.modal-footer {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 24px 18px;
+}
+.modal-footer button {
+    min-width: 72px;
+    padding: 5px 20px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+</style>
+</head>
+<body>
+<div class="panel">
+    <div class="panel-title">连接设置</div>
+    <div class="row">
+        <label>设备:</label>
+        <select id="channelSelect" disabled><option value="-1">未检测到设备</option></select>
+        <label>波特率:</label>
+        <select id="baudSelect">
+            <option value="0">10K</option>
+            <option value="1">20K</option>
+            <option value="2">50K</option>
+            <option value="3">100K</option>
+            <option value="4">125K</option>
+            <option value="5" selected>250K</option>
+            <option value="6">500K</option>
+            <option value="7">1000K</option>
+        </select>
+        <button id="refreshBtn" onclick="refreshDevices()">刷新</button>
+        <button id="connectBtn" onclick="toggleConnect()">连接</button>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-title">固件升级</div>
+    <div class="row">
+        <label>固件文件:</label>
+        <input type="text" id="firmwarePath" readonly placeholder="请选择固件文件...">
+        <button id="browseBtn" onclick="browseFile()">浏览...</button>
+    </div>
+    <div class="checkbox-row">
+        <input type="checkbox" id="testMode">
+        <label for="testMode">测试模式(第二次重启后恢复原固件)</label>
+    </div>
+    <div class="row">
+        <label>进度:</label>
+        <div class="progress-wrap">
+            <progress id="progressBar" value="0" max="100"></progress>
+            <span id="progressText" class="progress-text">0%</span>
+            <button id="flashBtn" class="primary" onclick="startFlash()" disabled>开始升级</button>
+        </div>
+    </div>
+</div>
+
+<div class="panel" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+    <div class="header-bar">
+        <div class="panel-title" style="border:none; margin:0; padding:0;">状态日志和板卡命令</div>
+        <button class="about-btn" onclick="showAbout()">关于</button>
+    </div>
+    <hr style="border:none; border-top:1px solid #eee; margin:6px 0 8px 0;">
+    <div class="log-section">
+        <div class="log-area">
+            <textarea id="logArea" readonly></textarea>
+        </div>
+        <div class="side-controls">
+            <div class="version-label" id="versionLabel">固件版本: 未获取</div>
+            <button id="getVersionBtn" onclick="getVersion()" disabled>获取版本</button>
+            <button id="rebootBtn" onclick="reboot()" disabled>重启板卡</button>
+            <button onclick="clearLog()">清空日志</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal-box">
+        <div class="modal-icon" id="modalIcon"></div>
+        <div class="modal-body">
+            <div class="modal-title" id="modalTitle"></div>
+            <div class="modal-msg" id="modalMsg"></div>
+        </div>
+        <div class="modal-footer" id="modalFooter"></div>
+    </div>
+</div>
+
+<script>
+let isConnected = false;
+let isUpdating = false;
+var modalResolve = null;
+
+var SVG_WARN = '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#FFB900"/><path d="M12 7v5" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1.2" fill="#fff"/></svg>';
+var SVG_SUCCESS = '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#0F8A0F"/><path d="M7.5 12.5l2.5 2.5 6.5-6.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+var SVG_ERROR = '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#E81123"/><path d="M8 8l8 8M16 8l-8 8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
+var SVG_INFO = '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#0078d4"/><path d="M12 7v1" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="11.5" r="0.5" fill="#fff"/><path d="M12 13v5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
+
+function showModal(title, msg, type, buttons) {
+    return new Promise(function(resolve) {
+        modalResolve = resolve;
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalMsg').textContent = msg;
+        var iconMap = {warn: SVG_WARN, success: SVG_SUCCESS, error: SVG_ERROR, info: SVG_INFO};
+        document.getElementById('modalIcon').innerHTML = iconMap[type] || SVG_INFO;
+        var footer = document.getElementById('modalFooter');
+        footer.innerHTML = '';
+        (buttons || [{text: '确定', cls: 'primary', value: true}]).forEach(function(b) {
+            var btn = document.createElement('button');
+            btn.textContent = b.text;
+            if (b.cls) btn.className = b.cls;
+            btn.onclick = function() {
+                document.getElementById('modalOverlay').classList.remove('active');
+                resolve(b.value);
+                modalResolve = null;
+            };
+            footer.appendChild(btn);
+        });
+        document.getElementById('modalOverlay').classList.add('active');
+    });
+}
+
+function send(action, params) {
+    var msg = {action: action};
+    if (params) {
+        for (var k in params) msg[k] = params[k];
+    }
+    window.chrome.webview.postMessage(msg);
+}
+
+function refreshDevices() { send('refreshDevices'); }
+
+function toggleConnect() {
+    if (isConnected) {
+        send('disconnect');
+    } else {
+        var chIdx = parseInt(document.getElementById('channelSelect').value);
+        var bdIdx = parseInt(document.getElementById('baudSelect').value);
+        send('connect', {channelIndex: chIdx, baudIndex: bdIdx});
+    }
+}
+
+function browseFile() { send('browseFile'); }
+function getVersion() { send('getVersion'); }
+
+async function reboot() {
+    var ok = await showModal('确认重启', '确认重启板卡？', 'warn', [
+        {text: '取消', cls: '', value: false},
+        {text: '重启', cls: 'primary', value: true}
+    ]);
+    if (ok) send('reboot');
+}
+
+function startFlash() {
+    var path = document.getElementById('firmwarePath').value;
+    var testMode = document.getElementById('testMode').checked;
+    if (!path) return;
+    send('flash', {path: path, testMode: testMode});
+}
+
+function clearLog() {
+    document.getElementById('logArea').value = '';
+}
+
+async function showAbout() {
+    await showModal('关于', '固件升级工具 v1.1\n\n支持 CAN 总线固件升级 (PCAN 接口)', 'info');
+}
+
+function updateUI() {
+    var path = document.getElementById('firmwarePath').value;
+    document.getElementById('flashBtn').disabled = !isConnected || !path || isUpdating;
+    document.getElementById('channelSelect').disabled = isConnected;
+    document.getElementById('baudSelect').disabled = isConnected;
+    document.getElementById('refreshBtn').disabled = isConnected;
+    document.getElementById('browseBtn').disabled = isUpdating;
+    document.getElementById('testMode').disabled = isUpdating;
+    document.getElementById('getVersionBtn').disabled = !isConnected;
+    document.getElementById('rebootBtn').disabled = !isConnected;
+}
+
+function onWebViewMessage(event) {
+    var data = event.data;
+    switch(data.event) {
+        case 'devices': {
+            var sel = document.getElementById('channelSelect');
+            sel.innerHTML = '';
+            if (data.channels.length === 0) {
+                sel.innerHTML = '<option value="-1">未检测到设备</option>';
+            } else {
+                for (var i = 0; i < data.channels.length; i++) {
+                    var ch = data.channels[i];
+                    var opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = 'PCAN-USB: ' + ch.handle.toString(16) + 'h';
+                    sel.appendChild(opt);
+                }
+            }
+            sel.disabled = isConnected;
+            break;
+        }
+        case 'connectResult': {
+            isConnected = data.success;
+            var btn = document.getElementById('connectBtn');
+            if (isConnected) {
+                btn.textContent = '断开';
+                btn.className = 'danger';
+            } else {
+                btn.textContent = '连接';
+                btn.className = '';
+                document.getElementById('versionLabel').textContent = '固件版本: 未获取';
+            }
+            updateUI();
+            if (data.errorMessage) {
+                showModal('连接失败', data.errorMessage, 'error');
+            }
+            break;
+        }
+        case 'fileSelected': {
+            document.getElementById('firmwarePath').value = data.path;
+            updateUI();
+            break;
+        }
+        case 'version': {
+            if (data.version) {
+                document.getElementById('versionLabel').textContent = '固件版本: ' + data.version;
+            }
+            break;
+        }
+        case 'log': {
+            var area = document.getElementById('logArea');
+            var now = new Date();
+            var h = String(now.getHours()).padStart(2, '0');
+            var m = String(now.getMinutes()).padStart(2, '0');
+            var s = String(now.getSeconds()).padStart(2, '0');
+            area.value += '[' + h + ':' + m + ':' + s + '] ' + data.message + '\n';
+            area.scrollTop = area.scrollHeight;
+            break;
+        }
+        case 'progress': {
+            document.getElementById('progressBar').value = data.percent;
+            document.getElementById('progressText').textContent = data.percent + '%';
+            break;
+        }
+        case 'flashStart': {
+            isUpdating = true;
+            document.getElementById('progressBar').value = 0;
+            document.getElementById('progressText').textContent = '0%';
+            updateUI();
+            break;
+        }
+        case 'flashComplete': {
+            isUpdating = false;
+            document.getElementById('progressBar').value = 0;
+            document.getElementById('progressText').textContent = '0%';
+            updateUI();
+            if (data.success) {
+                showModal('升级成功', '固件升级完成！请重启板卡', 'success');
+            } else {
+                showModal('升级失败', '固件升级失败，请查看日志', 'error');
+            }
+            break;
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    window.chrome.webview.addEventListener('message', onWebViewMessage);
+    updateUI();
+    send('refreshDevices');
+});
+</script>
+</body>
+</html>

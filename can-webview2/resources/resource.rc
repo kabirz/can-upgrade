@@ -1,0 +1,8 @@
+#include "resource.h"
+#include <windows.h>
+
+#pragma code_page(65001)
+
+IDI_APPICON ICON "icon.ico"
+
+IDR_HTML_INDEX RCDATA "index.html"

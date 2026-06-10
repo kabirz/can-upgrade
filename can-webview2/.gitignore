@@ -1,0 +1,9 @@
+build/
+out/
+.cache
+*.o
+*.obj
+*.exe
+*.a
+*.patch
+webview2.zip

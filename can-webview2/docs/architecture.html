@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAN 固件升级工具 - 技术文档</title>
+<style>
+:root {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --border: #e8e8e8;
+    --text: #2c2c2c;
+    --text2: #666666;
+    --accent: #0078d4;
+    --accent-light: #e6f2ff;
+    --green: #0f8a0f;
+    --green-light: #eaf7ea;
+    --red: #d42b2b;
+    --red-light: #fdeaea;
+    --orange: #e67e22;
+    --orange-light: #fef3e6;
+    --purple: #7c3aed;
+    --purple-light: #f0eaff;
+    --radius: 10px;
+    --shadow: 0 1px 4px rgba(0,0,0,0.06);
+    --shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: -apple-system, 'Microsoft YaHei', 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+}
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+}
+
+/* Header */
+.header {
+    text-align: center;
+    padding: 48px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+}
+.header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+}
+.header p {
+    font-size: 16px;
+    color: var(--text2);
+}
+.badge-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+.badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.badge-blue { background: var(--accent-light); color: var(--accent); }
+.badge-green { background: var(--green-light); color: var(--green); }
+.badge-purple { background: var(--purple-light); color: var(--purple); }
+
+/* Navigation */
+.toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin-bottom: 40px;
+    box-shadow: var(--shadow);
+}
+.toc h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text2);
+    margin-bottom: 12px;
+}
+.toc ul {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 6px 24px;
+}
+.toc a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 14px;
+    display: block;
+    padding: 4px 0;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+}
+.toc a:hover { border-bottom-color: var(--accent); }
+
+/* Section */
+.section {
+    margin-bottom: 48px;
+    scroll-margin-top: 24px;
+}
+.section h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent);
+    display: inline-block;
+}
+.section h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 28px 0 12px;
+    color: var(--text);
+}
+
+/* Cards */
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+}
+.card-accent {
+    border-left: 3px solid var(--accent);
+}
+
+/* Architecture Diagram */
+.arch-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    box-shadow: var(--shadow-lg);
+    margin-bottom: 24px;
+}
+.arch-layer {
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    position: relative;
+}
+.arch-layer:last-child { margin-bottom: 0; }
+.arch-layer-label {
+    position: absolute;
+    top: -10px;
+    left: 16px;
+    background: var(--card);
+    padding: 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+}
+.arch-layer-win32 {
+    background: linear-gradient(135deg, #f0f4ff 0%, #fafafa 100%);
+    border-color: #c0d4f0;
+}
+.arch-layer-webview {
+    background: linear-gradient(135deg, #eaf7ea 0%, #fafafa 100%);
+    border-color: #b0d8b0;
+}
+.arch-layer-html {
+    background: linear-gradient(135deg, #fff8e6 0%, #fafafa 100%);
+    border-color: #e0d0a0;
+}
+.arch-layer-native {
+    background: linear-gradient(135deg, #f0eaff 0%, #fafafa 100%);
+    border-color: #c8b0f0;
+}
+.arch-item {
+    display: inline-block;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    margin: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.arch-arrow {
+    text-align: center;
+    padding: 6px 0;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+}
+
+/* Code */
+.code-block {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+}
+.code-block .comment { color: #6c7086; }
+.code-block .keyword { color: #cba6f7; }
+.code-block .string { color: #a6e3a1; }
+.code-block .func { color: #89b4fa; }
+.code-block .param { color: #f9e2af; }
+
+/* Flow */
+.flow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+.flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px 0;
+    position: relative;
+}
+.flow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 48px;
+    bottom: -8px;
+    width: 2px;
+    background: var(--border);
+}
+.flow-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 15px;
+    flex-shrink: 0;
+    color: white;
+}
+.flow-num-blue { background: var(--accent); }
+.flow-num-green { background: var(--green); }
+.flow-num-purple { background: var(--purple); }
+.flow-num-orange { background: var(--orange); }
+.flow-content h4 {
+    font-size: 15px;
+    margin-bottom: 4px;
+}
+.flow-content p {
+    font-size: 13px;
+    color: var(--text2);
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 16px 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+th {
+    background: #f5f5f5;
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border);
+}
+td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    vertical-align: top;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f9f9f9; }
+
+/* Comparison columns */
+.compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+}
+.compare-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+}
+.compare-card h4 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.compare-card ul {
+    list-style: none;
+    font-size: 13px;
+}
+.compare-card li {
+    padding: 5px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.compare-card li::before {
+    content: '';
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.pro-card li::before { background: var(--green); content: '+'; }
+.con-card li::before { background: var(--red); content: '-'; }
+
+/* Memory bar */
+.mem-bar-container {
+    margin: 8px 0;
+}
+.mem-bar-label {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+}
+.mem-bar {
+    height: 28px;
+    border-radius: 6px;
+    background: #eee;
+    overflow: hidden;
+    position: relative;
+}
+.mem-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+    transition: width 0.5s ease;
+}
+.mem-bar-fill.win32 { background: linear-gradient(90deg, var(--green), #4caf50); }
+.mem-bar-fill.wv2 { background: linear-gradient(90deg, var(--accent), #42a5f5); }
+
+/* Process diagram */
+.process-row {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+}
+.process-box {
+    flex: 1;
+    min-width: 140px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    box-shadow: var(--shadow);
+}
+.process-box .icon {
+    font-size: 28px;
+    margin-bottom: 6px;
+}
+.process-box .name {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+.process-box .mem {
+    font-size: 12px;
+    color: var(--text2);
+}
+
+/* Note callout */
+.note {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-size: 13px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+.note-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.note-info { background: var(--accent-light); border: 1px solid #b0d4f0; }
+.note-warn { background: var(--orange-light); border: 1px solid #e0c090; }
+.note-good { background: var(--green-light); border: 1px solid #b0d8b0; }
+
+/* File tree */
+.file-tree {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    white-space: pre;
+}
+.file-tree .dir { color: #89b4fa; font-weight: 600; }
+.file-tree .file-cpp { color: #a6e3a1; }
+.file-tree .file-h { color: #f9e2af; }
+.file-tree .file-res { color: #fab387; }
+.file-tree .file-html { color: #f38ba8; }
+.file-tree .file-cfg { color: #b4befe; }
+.file-tree .indent { color: #6c7086; }
+
+/* Footer */
+.footer {
+    text-align: center;
+    padding: 32px 0 0;
+    border-top: 1px solid var(--border);
+    margin-top: 48px;
+    font-size: 13px;
+    color: var(--text2);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .container { padding: 20px 16px 60px; }
+    .header h1 { font-size: 24px; }
+    .compare-grid { grid-template-columns: 1fr; }
+    .process-row { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Header -->
+<div class="header">
+    <h1>CAN 固件升级工具 - 技术文档</h1>
+    <p>基于 WebView2 的 CAN 总线固件升级工具，使用 C++ 和 HTML/CSS/JS 构建</p>
+    <div class="badge-row">
+        <span class="badge badge-blue">C++17</span>
+        <span class="badge badge-green">WebView2</span>
+        <span class="badge badge-purple">CMake</span>
+    </div>
+</div>
+
+<!-- Table of Contents -->
+<nav class="toc">
+    <h2>目录</h2>
+    <ul>
+        <li><a href="#project-structure">项目结构</a></li>
+        <li><a href="#architecture">整体架构</a></li>
+        <li><a href="#interaction">前后端交互机制</a></li>
+        <li><a href="#js-to-cpp">JS → C++ 流程</a></li>
+        <li><a href="#cpp-to-js">C++ → JS 流程</a></li>
+        <li><a href="#thread-safety">线程安全</a></li>
+        <li><a href="#message-protocol">消息协议</a></li>
+        <li><a href="#comparison">WebView2 vs Win32 对比</a></li>
+        <li><a href="#memory">内存占用分析</a></li>
+        <li><a href="#build">构建说明</a></li>
+    </ul>
+</nav>
+
+<!-- Section 1: Project Structure -->
+<div class="section" id="project-structure">
+    <h2>项目结构</h2>
+    <div class="file-tree">
+<span class="dir">can-webview2/</span>
+<span class="indent">├── </span><span class="dir">include/</span>
+<span class="indent">│   ├── </span><span class="file-h">CanManager.h</span>          <span class="comment">// CAN 管理器类声明</span>
+<span class="indent">│   ├── </span><span class="file-h">PCANBasic.h</span>           <span class="comment">// PCAN SDK 类型定义</span>
+<span class="indent">│   └── </span><span class="file-h">resource.h</span>             <span class="comment">// 资源 ID 定义</span>
+<span class="indent">├── </span><span class="dir">src/</span>
+<span class="indent">│   ├── </span><span class="file-cpp">main.cpp</span>               <span class="comment">// WebView2 宿主 + 窗口</span>
+<span class="indent">│   └── </span><span class="file-cpp">CanManager.cpp</span>         <span class="comment">// CAN 通信实现</span>
+<span class="indent">├── </span><span class="dir">resources/</span>
+<span class="indent">│   ├── </span><span class="file-res">index.html</span>             <span class="comment">// Web 前端界面</span>
+<span class="indent">│   ├── </span><span class="file-res">icon.ico</span>               <span class="comment">// 应用图标</span>
+<span class="indent">│   └── </span><span class="file-res">resource.rc</span>            <span class="comment">// Win32 资源文件</span>
+<span class="indent">├── </span><span class="file-cfg">CMakeLists.txt</span>              <span class="comment">// CMake 构建配置</span>
+<span class="indent">├── </span><span class="file-cfg">CMakePresets.json</span>           <span class="comment">// CMake 预设</span>
+<span class="indent">└── </span><span class="file-cfg">compile_flags.txt</span>          <span class="comment">// clangd 配置</span>
+    </div>
+
+    <h3>模块职责</h3>
+    <table>
+        <thead>
+            <tr><th>文件</th><th>职责</th><th>行数</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>main.cpp</code></td><td>Win32 窗口创建、WebView2 宿主、消息路由、JSON 解析</td><td>~410</td></tr>
+            <tr><td><code>CanManager.cpp</code></td><td>PCAN DLL 动态加载、CAN 连接管理、固件升级协议</td><td>~270</td></tr>
+            <tr><td><code>index.html</code></td><td>完整的 UI 界面（HTML + CSS + JS），含模态对话框</td><td>~370</td></tr>
+            <tr><td><code>CanManager.h</code></td><td>CanManager 类声明、协议常量、类型定义</td><td>~90</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Section 2: Architecture -->
+<div class="section" id="architecture">
+    <h2>整体架构</h2>
+    <div class="arch-box">
+        <div class="arch-layer arch-layer-win32">
+            <span class="arch-layer-label">Win32 窗口层 (main.cpp)</span>
+            <span class="arch-item">WndProc</span>
+            <span class="arch-item">WM_SIZE</span>
+            <span class="arch-item">WM_CLOSE</span>
+            <span class="arch-item">自定义消息</span>
+        </div>
+        <div class="arch-layer arch-layer-webview">
+            <span class="arch-layer-label">WebView2 控件 (Edge Chromium)</span>
+            <span class="arch-item">ICoreWebView2</span>
+            <span class="arch-item">NavigateToString</span>
+            <span class="arch-item">PostWebMessageAsJson</span>
+            <span class="arch-item">WebMessageReceived</span>
+        </div>
+        <div class="arch-layer arch-layer-html">
+            <span class="arch-layer-label">Web 前端 (index.html)</span>
+            <span class="arch-item">HTML 结构</span>
+            <span class="arch-item">CSS 样式</span>
+            <span class="arch-item">JavaScript 逻辑</span>
+            <span class="arch-item">模态对话框</span>
+        </div>
+        <div class="arch-arrow">↕ chrome.webview.postMessage() / PostWebMessageAsJson()</div>
+        <div class="arch-layer arch-layer-native">
+            <span class="arch-layer-label">原生业务层 (CanManager)</span>
+            <span class="arch-item">PCAN DLL 加载</span>
+            <span class="arch-item">设备检测</span>
+            <span class="arch-item">CAN 收发</span>
+            <span class="arch-item">固件升级协议</span>
+        </div>
+    </div>
+
+    <div class="note note-info">
+        <span class="note-icon">ℹ️</span>
+        <div>
+            <strong>WebView2 SDK vs WebView2 Runtime：</strong><br>
+            SDK（头文件 + 静态库）在 CMake 配置时自动从 NuGet 下载，用于编译。Runtime 是用户系统上需要安装的 Microsoft Edge WebView2 运行时，Win11 自带，Win10 需单独安装。
+        </div>
+    </div>
+</div>
+
+<!-- Section 3: Interaction -->
+<div class="section" id="interaction">
+    <h2>前后端交互机制</h2>
+    <p>WebView2 提供了一套基于 JSON 消息的双向通信机制。前端通过 <code>chrome.webview</code> API 发送消息，C++ 通过 <code>PostWebMessageAsJson</code> 推送消息。</p>
+
+    <div class="card card-accent">
+        <h3>通信管线</h3>
+        <table>
+            <thead>
+                <tr><th>方向</th><th>JS API</th><th>C++ API</th><th>数据格式</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>JS → C++</strong></td>
+                    <td><code>chrome.webview.postMessage(obj)</code></td>
+                    <td><code>add_WebMessageReceived()</code></td>
+                    <td>JSON 对象</td>
+                </tr>
+                <tr>
+                    <td><strong>C++ → JS</strong></td>
+                    <td><code>chrome.webview.addEventListener('message', cb)</code></td>
+                    <td><code>PostWebMessageAsJson(json)</code></td>
+                    <td>JSON 字符串</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="note note-warn">
+        <span class="note-icon">⚠️</span>
+        <div>
+            <strong>注意：</strong><code>postMessage()</code> 会自动将传入的 JS 对象序列化为 JSON。因此 JS 侧应直接传对象，<strong>不要</strong>再调用 <code>JSON.stringify()</code>，否则会导致双重编码，C++ 端无法解析。
+        </div>
+    </div>
+</div>
+
+<!-- Section 4: JS to C++ -->
+<div class="section" id="js-to-cpp">
+    <h2>JS → C++ 交互流程</h2>
+    <div class="flow-steps">
+        <div class="flow-step">
+            <div class="flow-num flow-num-blue">1</div>
+            <div class="flow-content">
+                <h4>用户点击按钮</h4>
+                <p>例如用户点击"连接"按钮，触发 <code>toggleConnect()</code> 函数</p>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num flow-num-blue">2</div>
+            <div class="flow-content">
+                <h4>JS 构造消息并发送</h4>
+                <div class="code-block"><span class="comment">// JS 侧</span>
+<span class="func">chrome.webview</span>.<span class="func">postMessage</span>({
+    <span class="param">action</span>: <span class="string">"connect"</span>,
+    <span class="param">channelIndex</span>: 0,
+    <span class="param">baudIndex</span>: 5
+});</div>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num flow-num-blue">3</div>
+            <div class="flow-content">
+                <h4>C++ 接收并解析</h4>
+                <div class="code-block"><span class="comment">// C++ 侧 OnWebMessageReceived 回调</span>
+args-><span class="func">get_WebMessageAsJson</span>(&message);
+<span class="comment">// message = {"action":"connect","channelIndex":0,"baudIndex":5}</span>
+<span class="keyword">auto</span> action = <span class="func">GetJsonString</span>(message, <span class="string">L"action"</span>); <span class="comment">// "connect"</span></div>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num flow-num-blue">4</div>
+            <div class="flow-content">
+                <h4>调用 CanManager 执行业务</h4>
+                <div class="code-block"><span class="keyword">bool</span> ok = g_app.canMgr-><span class="func">Connect</span>(
+    g_app.channels[channelIndex],
+    BAUD_RATES[baudIndex]
+);</div>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num flow-num-blue">5</div>
+            <div class="flow-content">
+                <h4>返回结果给 JS</h4>
+                <div class="code-block"><span class="func">PostJson</span>(<span class="string">L"{\"event\":\"connectResult\",\"success\":true}"</span>);</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section 5: C++ to JS -->
+<div class="section" id="cpp-to-js">
+    <h2>C++ → JS 交互流程</h2>
+    <p>C++ 主动推送消息的场景包括：日志输出、进度更新、操作完成通知。</p>
+
+    <div class="flow-steps">
+        <div class="flow-step">
+            <div class="flow-num flow-num-green">1</div>
+            <div class="flow-content">
+                <h4>业务层触发回调</h4>
+                <p>CanManager 内部调用 <code>m_logCb("CAN 连接成功")</code> 或 <code>m_progressCb(50)</code></p>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num flow-num-green">2</div>
+            <div class="flow-content">
+                <h4>通过 Windows 消息转发到 UI 线程</h4>
+                <p>子线程不能直接操作 WebView2，使用 <code>PostMessage(hWnd, WM_LOG_MESSAGE, ...)</code> 回到 UI 线程</p>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num flow-num-green">3</div>
+            <div class="flow-content">
+                <h4>WndProc 构造 JSON 并推送</h4>
+                <div class="code-block"><span class="comment">// WndProc 中处理 WM_UPDATE_PROGRESS</span>
+<span class="keyword">wchar_t</span> json[64];
+<span class="func">swprintf</span>(json, 64,
+    <span class="string">L"{\"event\":\"progress\",\"percent\":%d}"</span>, percent);
+<span class="func">PostJson</span>(json); <span class="comment">// → webView->PostWebMessageAsJson(json)</span></div>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-num flow-num-green">4</div>
+            <div class="flow-content">
+                <h4>JS 接收并更新 UI</h4>
+                <div class="code-block"><span class="comment">// JS 侧</span>
+<span class="func">chrome.webview</span>.<span class="func">addEventListener</span>(<span class="string">'message'</span>, (event) => {
+    <span class="keyword">const</span> data = event.data; <span class="comment">// 已自动解析为对象</span>
+    <span class="keyword">switch</span> (data.event) {
+        <span class="keyword">case</span> <span class="string">'progress'</span>:
+            progressBar.value = data.percent;
+            <span class="keyword">break</span>;
+        <span class="keyword">case</span> <span class="string">'log'</span>:
+            logArea.value += data.message + <span class="string">'\n'</span>;
+            <span class="keyword">break</span>;
+    }
+});</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section 6: Thread Safety -->
+<div class="section" id="thread-safety">
+    <h2>线程安全</h2>
+    <p>固件升级是耗时操作（可能数十秒），必须在子线程执行。但 WebView2 的 <code>PostWebMessageAsJson</code> 只能在 UI 线程调用。</p>
+
+    <div class="card card-accent">
+        <h3>线程模型</h3>
+        <table>
+            <thead>
+                <tr><th>线程</th><th>职责</th><th>可调用 API</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>UI 线程</strong><br>(主消息循环)</td>
+                    <td>WndProc、WebView2 操作、JSON 推送</td>
+                    <td>PostWebMessageAsJson、WndProc</td>
+                </tr>
+                <tr>
+                    <td><strong>工作线程</strong><br>(FlashThread)</td>
+                    <td>固件升级、CAN 通信</td>
+                    <td>CanManager 方法、PostMessage</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>跨线程通信链路</h3>
+    <div class="card">
+        <div style="font-family: monospace; font-size: 13px; line-height: 2; white-space: pre; overflow-x: auto;">
+FlashThread (工作线程)
+  │  CanManager::FirmwareUpgrade()
+  │  └─ m_progressCb(50)
+  │     └─ OnProgress(50)
+  │        └─ PostMessage(hWnd, WM_UPDATE_PROGRESS, 50, 0)  ← 线程安全
+  ▼
+WndProc (UI 线程)
+  │  case WM_UPDATE_PROGRESS:
+  │  └─ PostJson(L"{\"event\":\"progress\",\"percent\":50}")
+  │     └─ webView->PostWebMessageAsJson(...)  ← UI 线程安全
+  ▼
+WebView2 → JS
+  │  event.data = {event: "progress", percent: 50}
+  ▼
+DOM 更新 (progressBar.value = 50)</div>
+    </div>
+
+    <div class="note note-good">
+        <span class="note-icon">✓</span>
+        <div>
+            <strong>关键设计：</strong>工作线程通过 <code>PostMessage</code>（Windows 消息队列）与 UI 线程通信，这是 Win32 中标准的线程安全通信方式。所有 WebView2 调用都在 UI 线程执行，不存在并发问题。
+        </div>
+    </div>
+</div>
+
+<!-- Section 7: Message Protocol -->
+<div class="section" id="message-protocol">
+    <h2>消息协议</h2>
+
+    <h3>JS → C++ 消息（action）</h3>
+    <table>
+        <thead>
+            <tr><th>action</th><th>参数</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>refreshDevices</code></td><td>-</td><td>扫描可用 CAN 设备</td></tr>
+            <tr><td><code>connect</code></td><td><code>channelIndex</code>, <code>baudIndex</code></td><td>连接到指定设备</td></tr>
+            <tr><td><code>disconnect</code></td><td>-</td><td>断开连接</td></tr>
+            <tr><td><code>browseFile</code></td><td>-</td><td>打开文件选择对话框</td></tr>
+            <tr><td><code>getVersion</code></td><td>-</td><td>获取固件版本</td></tr>
+            <tr><td><code>reboot</code></td><td>-</td><td>重启板卡</td></tr>
+            <tr><td><code>flash</code></td><td><code>path</code>, <code>testMode</code></td><td>开始固件升级</td></tr>
+        </tbody>
+    </table>
+
+    <h3>C++ → JS 消息（event）</h3>
+    <table>
+        <thead>
+            <tr><th>event</th><th>字段</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>devices</code></td><td><code>channels[]</code></td><td>可用设备列表</td></tr>
+            <tr><td><code>connectResult</code></td><td><code>success</code>, <code>errorMessage?</code></td><td>连接结果</td></tr>
+            <tr><td><code>fileSelected</code></td><td><code>path</code></td><td>选择的文件路径</td></tr>
+            <tr><td><code>version</code></td><td><code>version</code></td><td>固件版本号</td></tr>
+            <tr><td><code>log</code></td><td><code>message</code></td><td>日志消息</td></tr>
+            <tr><td><code>progress</code></td><td><code>percent</code></td><td>升级进度</td></tr>
+            <tr><td><code>flashStart</code></td><td>-</td><td>升级开始</td></tr>
+            <tr><td><code>flashComplete</code></td><td><code>success</code></td><td>升级完成</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Section 8: Comparison -->
+<div class="section" id="comparison">
+    <h2>WebView2 vs 纯 Win32 API 对比</h2>
+    <p>原版使用 Win32 Dialog API（<code>DialogBox</code> + 资源文件 <code>.rc</code>），新版使用 WebView2 加载 HTML 前端。以下是详细对比。</p>
+
+    <div class="compare-grid">
+        <div class="compare-card pro-card">
+            <h4><span style="color:var(--green)">●</span> WebView2 优势</h4>
+            <ul>
+                <li>HTML/CSS 布局比 Win32 Dialog 资源文件灵活得多</li>
+                <li>改样式不需要重新编译，只改 HTML 文件</li>
+                <li>CSS 动画、渐变、圆角、阴影轻松实现</li>
+                <li>Flexbox 自动适配窗口大小，无需手动 WM_SIZE</li>
+                <li>UI 和逻辑完全分离，可维护性高</li>
+                <li>自定义模态对话框比 MessageBox 美观</li>
+                <li>同一套前端代码可移植到其他 WebView 方案</li>
+                <li>开发者工具 (F12) 方便调试</li>
+            </ul>
+        </div>
+        <div class="compare-card con-card">
+            <h4><span style="color:var(--red)">●</span> WebView2 劣势</h4>
+            <ul>
+                <li>需要系统安装 WebView2 Runtime (~150MB)</li>
+                <li>启动初始化约 1-3 秒，Win32 对话框几乎瞬间</li>
+                <li>运行时内存占用高出约 20-50 倍</li>
+                <li>CMake 需下载 WebView2 SDK (NuGet)</li>
+                <li>前后端交互需要理解消息传递机制</li>
+                <li>不适合资源受限的嵌入式/老设备场景</li>
+                <li>调试涉及 JS/C++ 两套工具链</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>功能对比</h3>
+    <table>
+        <thead>
+            <tr><th>特性</th><th>纯 Win32</th><th>WebView2</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>UI 描述方式</td><td>资源文件 (.rc)</td><td>HTML + CSS</td></tr>
+            <tr><td>布局方式</td><td>绝对坐标</td><td>Flexbox / Grid</td></tr>
+            <tr><td>事件处理</td><td>WM_COMMAND 消息</td><td>JS 事件 + postMessage</td></tr>
+            <tr><td>样式定制</td><td>极其有限（子类化/自绘）</td><td>完全自定义 CSS</td></tr>
+            <tr><td>模态对话框</td><td>MessageBox（系统样式）</td><td>HTML 自定义模态框</td></tr>
+            <tr><td>进度条</td><td>msctls_progress32</td><td>HTML &lt;progress&gt; + CSS</td></tr>
+            <tr><td>日志区域</td><td>EDIT 控件 + EM_REPLACESEL</td><td>&lt;textarea&gt; + DOM 操作</td></tr>
+            <tr><td>响应式窗口</td><td>手动 MoveWindow</td><td>CSS flex 自动适配</td></tr>
+            <tr><td>UI 修改</td><td>改 .rc → 重新编译</td><td>改 HTML → 嵌入资源时需重编译</td></tr>
+            <tr><td>调试工具</td><td>Visual Studio 调试器</td><td>F12 开发者工具 + VS 调试器</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Section 9: Memory -->
+<div class="section" id="memory">
+    <h2>内存占用分析</h2>
+
+    <h3>可执行文件大小</h3>
+    <div class="mem-bar-container">
+        <div class="mem-bar-label">
+            <span>纯 Win32</span>
+            <span>~70 KB</span>
+        </div>
+        <div class="mem-bar"><div class="mem-bar-fill win32" style="width: 6%;">70 KB</div></div>
+    </div>
+    <div class="mem-bar-container">
+        <div class="mem-bar-label">
+            <span>WebView2</span>
+            <span>~103 KB</span>
+        </div>
+        <div class="mem-bar"><div class="mem-bar-fill wv2" style="width: 9%;">103 KB</div></div>
+    </div>
+
+    <h3>运行时内存占用</h3>
+    <div class="mem-bar-container">
+        <div class="mem-bar-label">
+            <span>纯 Win32</span>
+            <span>~3 MB</span>
+        </div>
+        <div class="mem-bar"><div class="mem-bar-fill win32" style="width: 2%;">3 MB</div></div>
+    </div>
+    <div class="mem-bar-container">
+        <div class="mem-bar-label">
+            <span>WebView2</span>
+            <span>~120 MB</span>
+        </div>
+        <div class="mem-bar"><div class="mem-bar-fill wv2" style="width: 80%;">120 MB</div></div>
+    </div>
+
+    <h3>进程分布</h3>
+    <div style="margin-bottom: 24px;">
+        <p style="margin-bottom: 12px; font-weight: 600;">纯 Win32 — 1 个进程</p>
+        <div class="process-row">
+            <div class="process-box">
+                <div class="icon">🖥️</div>
+                <div class="name">can-win32c.exe</div>
+                <div class="mem">~3 MB (全部)</div>
+            </div>
+        </div>
+
+        <p style="margin-bottom: 12px; font-weight: 600; margin-top: 24px;">WebView2 — 2-3 个进程</p>
+        <div class="process-row">
+            <div class="process-box">
+                <div class="icon">🖥️</div>
+                <div class="name">can-webview2.exe</div>
+                <div class="mem">主进程 ~10 MB</div>
+            </div>
+            <div class="process-box">
+                <div class="icon">🌐</div>
+                <div class="name">WebView2 渲染</div>
+                <div class="mem">~80 MB (Chromium + V8)</div>
+            </div>
+            <div class="process-box">
+                <div class="icon">⚙️</div>
+                <div class="name">WebView2 GPU</div>
+                <div class="mem">~30 MB (可选)</div>
+            </div>
+        </div>
+    </div>
+
+    <h3>详细对比</h3>
+    <table>
+        <thead>
+            <tr><th>指标</th><th>纯 Win32</th><th>WebView2</th><th>差异</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>exe 大小</td><td>~70 KB</td><td>~103 KB</td><td>+47%</td></tr>
+            <tr><td>运行时内存</td><td>~3 MB</td><td>~120 MB</td><td><strong>+40x</strong></td></tr>
+            <tr><td>进程数</td><td>1</td><td>2-3</td><td>+2</td></tr>
+            <tr><td>启动时间</td><td>&lt;100ms</td><td>1-3s</td><td>+30x</td></tr>
+            <tr><td>运行时依赖</td><td>无（纯系统 DLL）</td><td>WebView2 Runtime (~150MB)</td><td>需要安装</td></tr>
+            <tr><td>额外 DLL</td><td>无</td><td>无（静态链接 WebView2Loader）</td><td>-</td></tr>
+            <tr><td>CPU 空闲</td><td>~0%</td><td>~0-0.5%</td><td>Chromium 后台活动</td></tr>
+            <tr><td>GPU 使用</td><td>无</td><td>少量（页面渲染）</td><td>有 GPU 进程</td></tr>
+        </tbody>
+    </table>
+
+    <div class="note note-info">
+        <span class="note-icon">ℹ️</span>
+        <div>
+            <strong>关于静态链接：</strong>当前项目使用 <code>WebView2LoaderStatic.lib</code> 进行静态链接，因此编译产物只有一个 <code>can-webview2.exe</code>（~103KB），不需要分发额外的 <code>WebView2Loader.dll</code>。但运行时仍需系统安装 WebView2 Runtime。
+        </div>
+    </div>
+</div>
+
+<!-- Section 10: Build -->
+<div class="section" id="build">
+    <h2>构建说明</h2>
+
+    <h3>前置条件</h3>
+    <table>
+        <thead>
+            <tr><th>工具</th><th>版本要求</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>CMake</td><td>≥ 3.25</td><td>构建系统</td></tr>
+            <tr><td>Visual Studio</td><td>2022+（含 C++ 桌面开发）</td><td>编译器 (MSVC)</td></tr>
+            <tr><td>WebView2 SDK</td><td>1.0.2792.45</td><td>CMake 自动下载</td></tr>
+            <tr><td>Windows SDK</td><td>10.0.26100.0+</td><td>随 VS 安装</td></tr>
+        </tbody>
+    </table>
+
+    <h3>构建命令</h3>
+    <div class="code-block">
+<span class="comment"># 配置（首次会自动下载 WebView2 SDK）</span>
+cmake --preset vs
+
+<span class="comment"># 构建</span>
+cmake --build out --config Release
+
+<span class="comment"># 产物位置</span>
+<span class="comment"># out/Release/can-webview2.exe (~103 KB)</span></div>
+
+    <h3>CMake 工作流预设</h3>
+    <div class="code-block">
+<span class="comment"># 一键配置+构建 Release</span>
+cmake --workflow --preset vs-release
+
+<span class="comment"># 一键配置+构建 Debug</span>
+cmake --workflow --preset vs-debug</div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+    <p>CAN 固件升级工具 技术文档 · 版本 1.1.0 · WebView2 + C++17</p>
+</div>
+
+</div>
+</body>
+</html>
