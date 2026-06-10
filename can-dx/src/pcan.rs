@@ -33,19 +33,19 @@ pub const PCAN_USB: u8 = 0x05;
 #[repr(C)]
 #[derive(Clone, Debug)]
 pub struct TPCANMsg {
-    pub id: u32,            // 11/29-bit message identifier
-    pub msgtype: u8,        // Message type (standard/extended/etc)
-    pub len: u8,            // Data Length Code (0..8)
-    pub data: [u8; 8],      // Data bytes
+    pub id: u32,       // 11/29-bit message identifier
+    pub msgtype: u8,   // Message type (standard/extended/etc)
+    pub len: u8,       // Data Length Code (0..8)
+    pub data: [u8; 8], // Data bytes
 }
 
 /// PCAN timestamp structure
 #[repr(C)]
 #[derive(Clone, Debug)]
 pub struct TPCANTimestamp {
-    pub millis: u32,            // Base-value: milliseconds
-    pub millis_overflow: u16,   // Roll-arounds of millis
-    pub micros: u16,            // Microseconds: 0..999
+    pub millis: u32,          // Base-value: milliseconds
+    pub millis_overflow: u16, // Roll-arounds of millis
+    pub micros: u16,          // Microseconds: 0..999
 }
 
 impl TPCANMsg {
@@ -60,7 +60,6 @@ impl TPCANMsg {
             data,
         }
     }
-
 }
 
 // ── Baudrate helpers ────────────────────────────────────────
@@ -87,8 +86,6 @@ pub const BAUD_RATE_NAMES: &[&str] = &[
     "1000 Kbit/s",
 ];
 
-
-
 // ── Dynamic Library Loader ──────────────────────────────────
 
 /// Wraps a dynamically loaded PCANBasic.dll and provides
@@ -96,24 +93,19 @@ pub const BAUD_RATE_NAMES: &[&str] = &[
 pub struct PcanDll {
     lib: Library,
     // Function pointers (all use stdcall calling convention on Windows)
-    can_initialize:
-        unsafe extern "system" fn(u16, u16, u8, u32, u16) -> u32,
+    can_initialize: unsafe extern "system" fn(u16, u16, u8, u32, u16) -> u32,
     can_uninitialize: unsafe extern "system" fn(u16) -> u32,
     can_write: unsafe extern "system" fn(u16, *const TPCANMsg) -> u32,
-    can_read:
-        unsafe extern "system" fn(u16, *mut TPCANMsg, *mut TPCANTimestamp) -> u32,
-    can_filter_messages:
-        unsafe extern "system" fn(u16, u32, u32, u8) -> u32,
-    can_lookup_channel:
-        unsafe extern "system" fn(*const u8, *mut u16) -> u32,
+    can_read: unsafe extern "system" fn(u16, *mut TPCANMsg, *mut TPCANTimestamp) -> u32,
+    can_filter_messages: unsafe extern "system" fn(u16, u32, u32, u8) -> u32,
+    can_lookup_channel: unsafe extern "system" fn(*const u8, *mut u16) -> u32,
 }
 
 impl PcanDll {
     pub fn load(dll_path: Option<&str>) -> Result<Self, String> {
         let path = dll_path.unwrap_or("PCANBasic.dll");
         let lib = unsafe {
-            Library::new(path)
-                .map_err(|e| format!("无法加载 PCANBasic.dll ({}): {}", path, e))?
+            Library::new(path).map_err(|e| format!("无法加载 PCANBasic.dll ({}): {}", path, e))?
         };
 
         macro_rules! get_fn {
@@ -125,12 +117,36 @@ impl PcanDll {
             };
         }
 
-        let can_initialize = get_fn!(lib, "CAN_Initialize", unsafe extern "system" fn(u16, u16, u8, u32, u16) -> u32);
-        let can_uninitialize = get_fn!(lib, "CAN_Uninitialize", unsafe extern "system" fn(u16) -> u32);
-        let can_write = get_fn!(lib, "CAN_Write", unsafe extern "system" fn(u16, *const TPCANMsg) -> u32);
-        let can_read = get_fn!(lib, "CAN_Read", unsafe extern "system" fn(u16, *mut TPCANMsg, *mut TPCANTimestamp) -> u32);
-        let can_filter_messages = get_fn!(lib, "CAN_FilterMessages", unsafe extern "system" fn(u16, u32, u32, u8) -> u32);
-        let can_lookup_channel = get_fn!(lib, "CAN_LookUpChannel", unsafe extern "system" fn(*const u8, *mut u16) -> u32);
+        let can_initialize = get_fn!(
+            lib,
+            "CAN_Initialize",
+            unsafe extern "system" fn(u16, u16, u8, u32, u16) -> u32
+        );
+        let can_uninitialize = get_fn!(
+            lib,
+            "CAN_Uninitialize",
+            unsafe extern "system" fn(u16) -> u32
+        );
+        let can_write = get_fn!(
+            lib,
+            "CAN_Write",
+            unsafe extern "system" fn(u16, *const TPCANMsg) -> u32
+        );
+        let can_read = get_fn!(
+            lib,
+            "CAN_Read",
+            unsafe extern "system" fn(u16, *mut TPCANMsg, *mut TPCANTimestamp) -> u32
+        );
+        let can_filter_messages = get_fn!(
+            lib,
+            "CAN_FilterMessages",
+            unsafe extern "system" fn(u16, u32, u32, u8) -> u32
+        );
+        let can_lookup_channel = get_fn!(
+            lib,
+            "CAN_LookUpChannel",
+            unsafe extern "system" fn(*const u8, *mut u16) -> u32
+        );
 
         Ok(PcanDll {
             lib,
@@ -145,9 +161,7 @@ impl PcanDll {
 
     /// Initialize a PCAN channel.
     pub fn initialize(&self, channel: u16, baudrate: u16) -> u32 {
-        unsafe {
-            (self.can_initialize)(channel, baudrate, PCAN_USB, 0, 0)
-        }
+        unsafe { (self.can_initialize)(channel, baudrate, PCAN_USB, 0, 0) }
     }
 
     /// Uninitialize a PCAN channel.
@@ -162,9 +176,7 @@ impl PcanDll {
 
     /// Read a CAN message (non-blocking).
     pub fn read(&self, channel: u16, msg: &mut TPCANMsg, ts: &mut TPCANTimestamp) -> u32 {
-        unsafe {
-            (self.can_read)(channel, msg as *mut TPCANMsg, ts as *mut TPCANTimestamp)
-        }
+        unsafe { (self.can_read)(channel, msg as *mut TPCANMsg, ts as *mut TPCANTimestamp) }
     }
 
     /// Set message filter.
@@ -175,10 +187,6 @@ impl PcanDll {
     /// Look up a PCAN channel by device type and controller number.
     pub fn lookup_channel(&self, device_type: &str, channel_out: &mut u16) -> u32 {
         let c_str = std::ffi::CString::new(device_type).unwrap_or_default();
-        unsafe {
-            (self.can_lookup_channel)(c_str.as_ptr() as *const u8, channel_out as *mut u16)
-        }
+        unsafe { (self.can_lookup_channel)(c_str.as_ptr() as *const u8, channel_out as *mut u16) }
     }
 }
-
-

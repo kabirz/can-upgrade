@@ -66,7 +66,10 @@ fn can_worker(rx: std::sync::mpsc::Receiver<CanCommand>) {
                 let devices = manager.detect_devices();
                 push_event(CanEvent::DeviceList(devices));
             }
-            CanCommand::Connect { device_id, baud_idx } => {
+            CanCommand::Connect {
+                device_id,
+                baud_idx,
+            } => {
                 if device_id.is_empty() {
                     push_event(CanEvent::Error("无效的设备".into()));
                     continue;
@@ -90,18 +93,16 @@ fn can_worker(rx: std::sync::mpsc::Receiver<CanCommand>) {
             CanCommand::Flash {
                 file_path,
                 test_mode,
-            } => {
-                match manager.firmware_upgrade(&file_path, test_mode) {
-                    Ok(()) => {
-                        push_event(CanEvent::Log("固件升级完成".into()));
-                        push_event(CanEvent::FlashResult(true));
-                    }
-                    Err(e) => {
-                        push_event(CanEvent::Error(e));
-                        push_event(CanEvent::FlashResult(false));
-                    }
+            } => match manager.firmware_upgrade(&file_path, test_mode) {
+                Ok(()) => {
+                    push_event(CanEvent::Log("固件升级完成".into()));
+                    push_event(CanEvent::FlashResult(true));
                 }
-            }
+                Err(e) => {
+                    push_event(CanEvent::Error(e));
+                    push_event(CanEvent::FlashResult(false));
+                }
+            },
         }
     }
 }
@@ -187,7 +188,9 @@ pub fn App() -> Element {
                         }
                     }
                     CanEvent::Error(e) => {
-                        log_lines.write().push(timestamp() + &format!("错误: {}", e));
+                        log_lines
+                            .write()
+                            .push(timestamp() + &format!("错误: {}", e));
                         is_updating.set(false);
                         is_version_querying.set(false);
                     }
@@ -207,9 +210,16 @@ pub fn App() -> Element {
             let _ = tx.send(CanCommand::Disconnect);
         } else {
             let idx = *selected_device.read();
-            let device_id = devices.read().get(idx).map(|d| d.id.clone()).unwrap_or_default();
+            let device_id = devices
+                .read()
+                .get(idx)
+                .map(|d| d.id.clone())
+                .unwrap_or_default();
             let baud_idx = *selected_baud.read();
-            let _ = tx.send(CanCommand::Connect { device_id, baud_idx });
+            let _ = tx.send(CanCommand::Connect {
+                device_id,
+                baud_idx,
+            });
         }
     };
 
@@ -239,12 +249,10 @@ pub fn App() -> Element {
         is_updating.set(true);
         progress.set(0);
         let tm = *test_mode.read();
-        let _ = cmd_tx
-            .write()
-            .send(CanCommand::Flash {
-                file_path: fp,
-                test_mode: tm,
-            });
+        let _ = cmd_tx.write().send(CanCommand::Flash {
+            file_path: fp,
+            test_mode: tm,
+        });
     };
 
     let on_clear_log = move |_| {
@@ -254,16 +262,16 @@ pub fn App() -> Element {
     let has_file = !firmware_path.read().is_empty();
     let can_flash = *connected.read() && has_file && !*is_updating.read();
 
-    let device_names: Vec<String> = devices
-        .read()
-        .iter()
-        .map(|d| d.name.clone())
-        .collect();
+    let device_names: Vec<String> = devices.read().iter().map(|d| d.name.clone()).collect();
 
     let log_text = log_lines.read().join("\n");
 
     let ver = version_str.read().clone();
-    let ver_color = if ver == "未获取" { "color: #8B0000;" } else { "color: #1B8A1B;" };
+    let ver_color = if ver == "未获取" {
+        "color: #8B0000;"
+    } else {
+        "color: #1B8A1B;"
+    };
 
     rsx! {
         div { class: "container",

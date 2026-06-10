@@ -239,7 +239,9 @@ impl CanManager {
         #[cfg(target_os = "windows")]
         if let Some(ref dll_arc) = self.pcan_dll {
             use crate::pcan::*;
-            let ch: u16 = self.connected_channel.strip_prefix("pcan:")
+            let ch: u16 = self
+                .connected_channel
+                .strip_prefix("pcan:")
                 .and_then(|s| u16::from_str_radix(s.trim_end_matches('h'), 16).ok())
                 .ok_or("未连接到 PCAN 设备")?;
             let dll = dll_arc.lock().map_err(|e| format!("锁错误: {}", e))?;
@@ -274,15 +276,26 @@ impl CanManager {
         #[cfg(target_os = "windows")]
         if let Some(ref dll_arc) = self.pcan_dll {
             use crate::pcan::*;
-            let ch = self.connected_channel.strip_prefix("pcan:")
+            let ch = self
+                .connected_channel
+                .strip_prefix("pcan:")
                 .and_then(|s| u16::from_str_radix(s.trim_end_matches('h'), 16).ok())?;
             let dll = dll_arc.lock().ok()?;
             loop {
                 if _start.elapsed().as_millis() as u64 >= timeout_ms {
                     return None;
                 }
-                let mut msg = TPCANMsg { id: 0, msgtype: 0, len: 0, data: [0u8; 8] };
-                let mut ts = TPCANTimestamp { millis: 0, millis_overflow: 0, micros: 0 };
+                let mut msg = TPCANMsg {
+                    id: 0,
+                    msgtype: 0,
+                    len: 0,
+                    data: [0u8; 8],
+                };
+                let mut ts = TPCANTimestamp {
+                    millis: 0,
+                    millis_overflow: 0,
+                    micros: 0,
+                };
                 let status = dll.read(ch, &mut msg, &mut ts);
                 if status == PCAN_ERROR_OK {
                     return Some((msg.id, msg.data, msg.len));
@@ -354,8 +367,7 @@ impl CanManager {
         if !self.connected {
             return Err("CAN 已断开连接, 请重新连接".into());
         }
-        let firmware_data = std::fs::read(file_path)
-            .map_err(|e| format!("无法打开文件: {}", e))?;
+        let firmware_data = std::fs::read(file_path).map_err(|e| format!("无法打开文件: {}", e))?;
         let file_size = firmware_data.len();
         self.log(&format!("开始固件升级, 固件大小: {} 字节", file_size));
 
@@ -389,7 +401,10 @@ impl CanManager {
         self.send_command(BOARD_CONFIRM, if test_mode { 0 } else { 1 })?;
         match self.wait_for_response(30000) {
             Some((FW_CODE_CONFIRM, 0x55AA55AA)) => {
-                self.log(&format!("固件 {} 上传完成. 点击重启，板卡将在45-60秒内完成重启", file_path));
+                self.log(&format!(
+                    "固件 {} 上传完成. 点击重启，板卡将在45-60秒内完成重启",
+                    file_path
+                ));
                 Ok(())
             }
             Some((FW_CODE_TRANSFER_ERROR, _)) => Err("固件更新失败 (传输错误)".into()),

@@ -19,11 +19,20 @@ fn make_icon() -> Option<dioxus::desktop::tao::window::Icon> {
             let pin_left = (7..10).contains(&x) && (13..19).contains(&y);
             let pin_right = (22..25).contains(&x) && (13..19).contains(&y);
             if in_notch {
-                rgba[i] = 0x11; rgba[i + 1] = 0x11; rgba[i + 2] = 0x11; rgba[i + 3] = 0xFF;
+                rgba[i] = 0x11;
+                rgba[i + 1] = 0x11;
+                rgba[i + 2] = 0x11;
+                rgba[i + 3] = 0xFF;
             } else if in_body {
-                rgba[i] = 0x19; rgba[i + 1] = 0x76; rgba[i + 2] = 0xD2; rgba[i + 3] = 0xFF;
+                rgba[i] = 0x19;
+                rgba[i + 1] = 0x76;
+                rgba[i + 2] = 0xD2;
+                rgba[i + 3] = 0xFF;
             } else if pin_top || pin_bot || pin_left || pin_right {
-                rgba[i] = 0xB0; rgba[i + 1] = 0xB0; rgba[i + 2] = 0xB0; rgba[i + 3] = 0xFF;
+                rgba[i] = 0xB0;
+                rgba[i + 1] = 0xB0;
+                rgba[i + 2] = 0xB0;
+                rgba[i + 3] = 0xFF;
             }
         }
     }
