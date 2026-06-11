@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [can-dx, rust]
+        project: [rust]
     steps:
       - uses: actions/checkout@v4
 
@@ -65,6 +65,27 @@ jobs:
         with:
           name: ${{ matrix.project }}-windows
           path: ${{ matrix.project }}/target/release/*.exe
+          if-no-files-found: error
+
+  windows-dx:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dioxus-cli
+        run: cargo binstall dioxus-cli --force
+
+      - name: Build can-dx (release)
+        working-directory: can-dx
+        run: dx build -r --windows
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: can-dx-windows
+          path: can-dx/target/dx/can-dx/release/windows/app/can-dx.exe
           if-no-files-found: error
 
   # ── Linux builds ────────────────────────────────────────────────
@@ -100,24 +121,28 @@ jobs:
           path: ${{ matrix.project.name }}/build/${{ matrix.project.bin }}
           if-no-files-found: error
 
-  linux-cargo:
+  linux-dx:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Linux dependencies (can-dx)
+      - name: Install Linux dependencies
         run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libxdo-dev
 
+      - name: Install dioxus-cli
+        run: cargo binstall dioxus-cli --force
+
       - name: Build can-dx (release)
-        run: cargo build --release --manifest-path can-dx/Cargo.toml
+        working-directory: can-dx
+        run: dx build -r --linux
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: can-dx-linux
-          path: can-dx/target/release/can-dx
+          path: can-dx/target/dx/can-dx/release/linux/app/can-dx
           if-no-files-found: error
 
   # ── Release ─────────────────────────────────────────────────────
@@ -126,8 +151,9 @@ jobs:
     needs:
       - windows-cmake
       - windows-cargo
+      - windows-dx
       - linux-cmake
-      - linux-cargo
+      - linux-dx
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:

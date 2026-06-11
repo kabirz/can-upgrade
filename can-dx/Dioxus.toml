@@ -1,0 +1,5 @@
+[application]
+name = "can-dx"
+
+[bundle]
+icon = ["icon.ico"]

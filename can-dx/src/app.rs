@@ -313,6 +313,7 @@ pub fn App() -> Element {
                         "刷新"
                     }
                     button { class: if *connected.read() { "btn btn-danger" } else { "btn btn-primary" },
+                        disabled: !*connected.read() && devices.read().is_empty(),
                         onclick: on_connect,
                         if *connected.read() { "断开" } else { "连接" }
                     }
