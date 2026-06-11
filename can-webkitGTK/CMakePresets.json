@@ -1,0 +1,44 @@
+{
+    "version": 7,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "default",
+            "displayName": "Linux (WebKitGTK)",
+            "binaryDir": "${sourceDir}/build"
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "release",
+            "configurePreset": "default"
+        },
+        {
+            "name": "debug",
+            "configurePreset": "default",
+            "configuration": "Debug"
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "release",
+            "displayName": "Release Workflow (WebKitGTK)",
+            "steps": [
+                { "type": "configure", "name": "default" },
+                { "type": "build", "name": "release" }
+            ]
+        },
+        {
+            "name": "debug",
+            "displayName": "Debug Workflow (WebKitGTK)",
+            "steps": [
+                { "type": "configure", "name": "default" },
+                { "type": "build", "name": "debug" }
+            ]
+        }
+    ]
+}

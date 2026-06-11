@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub const PLATFORM_RX: u32 = 0x101;
 pub const PLATFORM_TX: u32 = 0x102;
@@ -143,12 +143,12 @@ impl CanManager {
 
     // ── Connect / Disconnect ─────────────────────────────
 
-    pub fn connect(&mut self, device_id: &str, baud_idx: usize) -> Result<(), String> {
+    pub fn connect(&mut self, device_id: &str, _baud_idx: usize) -> Result<(), String> {
         if self.connected {
             return Err("已经连接".into());
         }
 
-        if let Some(ch) = device_id.strip_prefix("pcan:") {
+        if let Some(_ch) = device_id.strip_prefix("pcan:") {
             #[cfg(target_os = "windows")]
             {
                 let channel: u16 = ch.parse().map_err(|_| "无效的 PCAN 通道".to_string())?;
@@ -264,8 +264,8 @@ impl CanManager {
 
     fn send_command(&self, code: u32, val: u32) -> Result<(), String> {
         let mut data = [0u8; 8];
-        data[..4].copy_from_slice(&code.to_le_bytes());
-        data[4..8].copy_from_slice(&val.to_le_bytes());
+        data[..4].copy_from_slice(&code.to_be_bytes());
+        data[4..8].copy_from_slice(&val.to_be_bytes());
         self.write_frame(PLATFORM_RX, &data)
     }
 
@@ -322,8 +322,8 @@ impl CanManager {
             }
             if let Some((id, data, _len)) = self.read_frame(50) {
                 if id == PLATFORM_TX {
-                    let code = u32::from_le_bytes(data[..4].try_into().unwrap_or([0; 4]));
-                    let val = u32::from_le_bytes(data[4..8].try_into().unwrap_or([0; 4]));
+                    let code = u32::from_be_bytes(data[..4].try_into().unwrap_or([0; 4]));
+                    let val = u32::from_be_bytes(data[4..8].try_into().unwrap_or([0; 4]));
                     return Some((code, val));
                 }
             }
