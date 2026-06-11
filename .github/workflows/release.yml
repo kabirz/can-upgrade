@@ -75,7 +75,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Install dioxus-cli
-        run: cargo binstall dioxus-cli --force
+        run: cargo install dioxus-cli --force
 
       - name: Build can-dx (release)
         working-directory: can-dx
@@ -132,7 +132,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libxdo-dev
 
       - name: Install dioxus-cli
-        run: cargo binstall dioxus-cli --force
+        run: cargo install dioxus-cli --force
 
       - name: Build can-dx (release)
         working-directory: can-dx
