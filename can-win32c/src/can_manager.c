@@ -251,7 +251,7 @@ int CanManager_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int tes
 }
 
 int CanManager_DetectDevice(CanManager* mgr, TPCANHandle* channels, int maxCount) {
-    if (!ensureDriver(mgr)) return 0;
+    if (!ensureDriver(mgr)) return -1;
     int count = 0;
     for (int i = 0; i < 16 && count < maxCount; i++) {
         TPCANHandle ch = PCAN_NONEBUS;

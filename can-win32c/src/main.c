@@ -90,9 +90,9 @@ static void RefreshDevices(HWND hwnd) {
     SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
     CanManager_SetCallback(g_canManager, AppendLog);
     g_channelCount = CanManager_DetectDevice(g_canManager, g_channels, MAX_DEVICES);
-    if (g_channelCount <= 0) {
-        AppendLog("未检测到 CAN 设备，请检查驱动和硬件连接");
-    } else {
+    if (g_channelCount < 0) {
+        AppendLog("缺少 PCANBasic.dll，可能未安装 PCAN 驱动，请安装驱动后重试");
+    } else if (g_channelCount > 0){
         wchar_t buf[128];
         for (int i = 0; i < g_channelCount; i++) {
             wsprintfW(buf, L"PCAN-USB: %xh", g_channels[i]);
@@ -138,11 +138,9 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         switch (LOWORD(wParam)) {
         case IDCANCEL:
         case IDOK:
-        case IDM_FILE_EXIT:
             DestroyWindow(hwnd);
             PostQuitMessage(0);
             return TRUE;
-        case IDM_FILE_OPEN:
         case IDC_BUTTON_BROWSE: {
             wchar_t fn[MAX_PATH] = L"";
             OPENFILENAMEW ofn = {sizeof(ofn)};
@@ -157,11 +155,6 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             }
             return TRUE;
         }
-        case IDM_HELP_ABOUT:
-            MessageBoxW(hwnd, L"固件升级工具 v1.1\n\n支持 CAN 总线固件升级 (PCAN 接口)",
-                        L"关于", MB_OK | MB_ICONINFORMATION);
-            return TRUE;
-        case IDM_EDIT_CLEARLOG:
         case IDC_BUTTON_CLEAR_LOG:
             SetWindowTextW(hLog, L"");
             return TRUE;

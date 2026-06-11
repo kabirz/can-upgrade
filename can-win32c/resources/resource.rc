@@ -6,29 +6,11 @@
 IDI_APPICON ICON "icon.ico"
 IDI_APPICON_SMALL ICON "icon.ico"
 
-IDR_MAINMENU MENU
-BEGIN
-    POPUP "文件(&F)"
-    BEGIN
-        MENUITEM "打开(&O)",                IDM_FILE_OPEN
-        MENUITEM "退出(&X)",                IDM_FILE_EXIT
-    END
-    POPUP "编辑(&E)"
-    BEGIN
-        MENUITEM "清空日志(&L)",            IDM_EDIT_CLEARLOG
-    END
-    POPUP "帮助(&H)"
-    BEGIN
-        MENUITEM "关于(&A)",                IDM_HELP_ABOUT
-    END
-END
-
 IDD_MAIN DIALOGEX 270, 100, 380, 222
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "固件升级工具 (CAN)"
 FONT 9, "Microsoft YaHei", 400, 0, 0x0
-MENU IDR_MAINMENU
 BEGIN
     GROUPBOX        "连接设置", IDC_STATIC, 7, 7, 370, 30
     LTEXT           "设备:", IDC_STATIC, 20, 15, 20, 12, SS_LEFT
@@ -50,7 +32,7 @@ BEGIN
     LTEXT           "0%", IDC_LABEL_PERCENT, 304, 90, 18, 12, SS_LEFT
     PUSHBUTTON      "开始升级", IDC_BUTTON_FLASH, 325, 90, 45, 14, WS_TABSTOP
 
-    GROUPBOX        "状态日志和板卡命令", IDC_STATIC, 7, 117, 370, 97
+    GROUPBOX        "日志", IDC_STATIC, 7, 117, 370, 97
     EDITTEXT        IDC_EDIT_LOG, 15, 128, 295, 78, ES_MULTILINE |
                     ES_AUTOVSCROLL | WS_VSCROLL | ES_READONLY
     LTEXT           "固件版本: 未获取", IDC_LABEL_VERSION, 315, 130, 60, 10, SS_LEFT

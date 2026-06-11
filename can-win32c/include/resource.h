@@ -6,12 +6,6 @@
 
 #define IDD_MAIN                        201
 
-#define IDR_MAINMENU                    202
-#define IDM_FILE_OPEN                   203
-#define IDM_FILE_EXIT                   204
-#define IDM_EDIT_CLEARLOG               205
-#define IDM_HELP_ABOUT                  206
-
 #define IDC_COMBO_CHANNEL               301
 #define IDC_COMBO_BAUDRATE              302
 #define IDC_BUTTON_REFRESH              303
