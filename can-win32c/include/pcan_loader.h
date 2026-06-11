@@ -10,6 +10,7 @@ extern "C" {
 
 int PcanLoader_Load(void);
 int PcanLoader_IsLoaded(void);
+DWORD PcanLoader_GetLoadError(void);
 void PcanLoader_Unload(void);
 
 typedef TPCANStatus (__stdcall *PFN_PCAN_Initialize)(TPCANHandle, TPCANBaudrate, TPCANType, DWORD, WORD);

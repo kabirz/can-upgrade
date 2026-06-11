@@ -40,8 +40,16 @@ static void logMsg(CanManager* mgr, const char* msg) {
 }
 
 static int ensureDriver(CanManager* mgr) {
-    if (PcanLoader_IsLoaded() || PcanLoader_Load()) return 1;
-    logMsg(mgr, "PCANBasic.dll 不存在，请安装 PCAN 驱动");
+    if (PcanLoader_IsLoaded()) return 1;
+    if (PcanLoader_Load()) return 1;
+    DWORD err = PcanLoader_GetLoadError();
+    char buf[256];
+    if (err == 0)
+        logMsg(mgr, "PCANBasic.dll 加载失败，驱动函数不完整，请安装 PCAN 驱动");
+    else {
+        sprintf(buf, "PCANBasic.dll 加载失败 (错误码: %lu)，请安装 PCAN 驱动", err);
+        logMsg(mgr, buf);
+    }
     return 0;
 }
 

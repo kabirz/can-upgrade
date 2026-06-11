@@ -39,6 +39,9 @@ static void OnProgress(int percent) {
     if (hLog) PostMessage(GetParent(hLog), WM_UPDATE_PROGRESS, percent, 0);
 }
 
+static void UpdateConnectBtn(HWND hwnd);
+static void UpdateFlashBtn(HWND hwnd);
+
 void AppendLog(const char* msg) {
     if (!hLog) return;
     int wlen = MultiByteToWideChar(CP_UTF8, 0, msg, -1, NULL, 0);
@@ -63,6 +66,11 @@ static void EnableUI(HWND hwnd, int conn) {
     EnableWindow(DLG(IDC_BUTTON_REFRESH), !conn);
     EnableWindow(DLG(IDC_COMBO_CHANNEL), !conn);
     EnableWindow(DLG(IDC_COMBO_BAUDRATE), !conn);
+    if (conn) {
+        EnableWindow(DLG(IDC_BUTTON_CONNECT), TRUE);
+    } else {
+        UpdateConnectBtn(hwnd);
+    }
     if (!conn) SetWindowTextW(DLG(IDC_LABEL_VERSION), L"固件版本: 未获取");
 }
 
@@ -72,18 +80,27 @@ static void UpdateFlashBtn(HWND hwnd) {
     EnableWindow(DLG(IDC_BUTTON_FLASH), isConnected && wcslen(fn) > 0 && !isUpdating);
 }
 
+static void UpdateConnectBtn(HWND hwnd) {
+    int idx = SendMessage(DLG(IDC_COMBO_CHANNEL), CB_GETCURSEL, 0, 0);
+    EnableWindow(DLG(IDC_BUTTON_CONNECT), idx >= 0 && g_channelCount > 0 && !isUpdating);
+}
+
 static void RefreshDevices(HWND hwnd) {
     HWND hCombo = DLG(IDC_COMBO_CHANNEL);
     SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
     CanManager_SetCallback(g_canManager, AppendLog);
     g_channelCount = CanManager_DetectDevice(g_canManager, g_channels, MAX_DEVICES);
-    wchar_t buf[128];
-    for (int i = 0; i < g_channelCount; i++) {
-        wsprintfW(buf, L"PCAN-USB: %xh", g_channels[i]);
-        SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)buf);
-    }
-    if (SendMessage(hCombo, CB_GETCOUNT, 0, 0) > 0)
+    if (g_channelCount <= 0) {
+        AppendLog("未检测到 CAN 设备，请检查驱动和硬件连接");
+    } else {
+        wchar_t buf[128];
+        for (int i = 0; i < g_channelCount; i++) {
+            wsprintfW(buf, L"PCAN-USB: %xh", g_channels[i]);
+            SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)buf);
+        }
         SendMessage(hCombo, CB_SETCURSEL, 0, 0);
+    }
+    UpdateConnectBtn(hwnd);
 }
 
 DWORD WINAPI FirmwareThread(LPVOID lpParam) {
@@ -111,6 +128,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         EnableWindow(DLG(IDC_BUTTON_FLASH), FALSE);
         EnableWindow(DLG(IDC_BUTTON_GETVERSION), FALSE);
         EnableWindow(DLG(IDC_BUTTON_REBOOT), FALSE);
+        EnableWindow(DLG(IDC_BUTTON_CONNECT), FALSE);
         hLog = DLG(IDC_EDIT_LOG);
         UpdateFlashBtn(hwnd);
         RefreshDevices(hwnd);
@@ -222,6 +240,10 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             }
             return TRUE;
         }
+        }
+        if (HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_COMBO_CHANNEL) {
+            UpdateConnectBtn(hwnd);
+            return TRUE;
         }
         return FALSE;
     case WM_UPDATE_PROGRESS: {

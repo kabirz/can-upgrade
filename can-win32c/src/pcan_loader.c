@@ -1,6 +1,7 @@
 #include "pcan_loader.h"
 
 static HMODULE g_hPcanModule = NULL;
+static DWORD g_loadError = 0;
 
 PFN_PCAN_Initialize Pcan_Initialize;
 PFN_PCAN_Uninitialize Pcan_Uninitialize;
@@ -25,11 +26,22 @@ int PcanLoader_IsLoaded(void) {
     return g_hPcanModule != NULL;
 }
 
+DWORD PcanLoader_GetLoadError(void) {
+    return g_loadError;
+}
+
 int PcanLoader_Load(void) {
     if (g_hPcanModule) return 1;
 
+    g_loadError = 0;
     g_hPcanModule = LoadLibraryW(L"PCANBasic.dll");
-    if (!g_hPcanModule) return 0;
+    if (!g_hPcanModule) {
+        g_loadError = GetLastError();
+        char buf[128];
+        sprintf(buf, "加载 PCANBasic.dll 失败 (错误码: %lu)", g_loadError);
+        OutputDebugStringA(buf);
+        return 0;
+    }
 
     LOAD_PROC(Initialize);
     LOAD_PROC(Uninitialize);
