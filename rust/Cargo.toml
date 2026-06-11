@@ -14,3 +14,10 @@ winres = "0.1.12"
 [target.x86_64-pc-windows-msvc.dependencies]
 peak-can-sys = "0.1.2"
 
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+

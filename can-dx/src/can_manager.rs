@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub const PLATFORM_RX: u32 = 0x101;
 pub const PLATFORM_TX: u32 = 0x102;
@@ -143,12 +143,12 @@ impl CanManager {
 
     // ── Connect / Disconnect ─────────────────────────────
 
-    pub fn connect(&mut self, device_id: &str, _baud_idx: usize) -> Result<(), String> {
+    pub fn connect(&mut self, device_id: &str, baud_idx: usize) -> Result<(), String> {
         if self.connected {
             return Err("已经连接".into());
         }
 
-        if let Some(_ch) = device_id.strip_prefix("pcan:") {
+        if let Some(ch) = device_id.strip_prefix("pcan:") {
             #[cfg(target_os = "windows")]
             {
                 let channel: u16 = ch.parse().map_err(|_| "无效的 PCAN 通道".to_string())?;

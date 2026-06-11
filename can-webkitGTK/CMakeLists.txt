@@ -52,4 +52,6 @@ target_link_directories(can-webkitgtk PRIVATE
     ${GTK4_LIBRARY_DIRS}
 )
 
+target_link_options(can-webkitgtk PRIVATE -s)
+
 install(TARGETS can-webkitgtk DESTINATION bin)

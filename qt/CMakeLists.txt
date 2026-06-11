@@ -71,6 +71,8 @@ if(WIN32)
         WIN32_EXECUTABLE TRUE
         LINK_FLAGS "/ENTRY:mainCRTStartup"
     )
+else()
+    target_link_options(can_upgrade PRIVATE -s)
 
     # 创建Windows资源文件以设置图标
     configure_file(

@@ -1,0 +1,157 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Windows builds ──────────────────────────────────────────────
+
+  windows-cmake:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - name: can-webview2
+            preset: vs
+          - name: can-win32c
+          - name: win32c
+          - name: win32cpp
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.project.name }}
+        working-directory: ${{ matrix.project.name }}
+        run: |
+          $preset = "${{ matrix.project.preset }}"
+          if ($preset -ne "") {
+            cmake --preset $preset
+            cmake --build out --config Release
+          } else {
+            cmake -B build
+            cmake --build build --config Release
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.project.name }}-windows
+          path: |
+            ${{ matrix.project.name }}/out/Release/*.exe
+            ${{ matrix.project.name }}/build/Release/*.exe
+          if-no-files-found: error
+
+  windows-cargo:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [can-dx, rust]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build ${{ matrix.project }} (release)
+        run: cargo build --release --manifest-path ${{ matrix.project }}/Cargo.toml
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.project }}-windows
+          path: ${{ matrix.project }}/target/release/*.exe
+          if-no-files-found: error
+
+  # ── Linux builds ────────────────────────────────────────────────
+
+  linux-cmake:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - name: can-webkitGTK
+            deps: libwebkitgtk-6.0-dev libgtk-4-dev
+            bin: can-webkitgtk
+          - name: gtk4
+            deps: libgtk-4-dev
+            bin: can-upgrade-gtk4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.project.deps }}
+
+      - name: Build ${{ matrix.project.name }}
+        working-directory: ${{ matrix.project.name }}
+        run: |
+          cmake -B build
+          cmake --build build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.project.name }}-linux
+          path: ${{ matrix.project.name }}/build/${{ matrix.project.bin }}
+          if-no-files-found: error
+
+  linux-cargo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies (can-dx)
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libxdo-dev
+
+      - name: Build can-dx (release)
+        run: cargo build --release --manifest-path can-dx/Cargo.toml
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: can-dx-linux
+          path: can-dx/target/release/can-dx
+          if-no-files-found: error
+
+  # ── Release ─────────────────────────────────────────────────────
+
+  release:
+    needs:
+      - windows-cmake
+      - windows-cargo
+      - linux-cmake
+      - linux-cargo
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten and rename artifacts
+        run: |
+          mkdir -p dist
+          cp artifacts/can-webview2-windows/out/Release/can-webview2.exe dist/can-webview2.exe
+          cp artifacts/can-win32c-windows/build/Release/can-upgrade.exe dist/can-win32c.exe
+          cp artifacts/win32c-windows/build/Release/can-upgrade.exe dist/win32c.exe
+          cp artifacts/win32cpp-windows/build/Release/can-upgrade.exe dist/win32cpp.exe
+          cp artifacts/can-dx-windows/can-dx.exe dist/can-dx-windows.exe
+          cp artifacts/can-dx-linux/can-dx dist/can-dx-linux
+          cp artifacts/rust-windows/can-firmware-upgrade.exe dist/can-firmware-upgrade.exe
+          cp artifacts/can-webkitGTK-linux/can-webkitgtk dist/can-webkitgtk
+          cp artifacts/gtk4-linux/can-upgrade-gtk4 dist/can-upgrade-gtk4
+          echo "--- Release files ---"
+          ls -lh dist/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/*
