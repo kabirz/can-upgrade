@@ -40,3 +40,32 @@ BEGIN
     PUSHBUTTON      "重启板卡", IDC_BUTTON_REBOOT, 325, 165, 45, 14, WS_TABSTOP
     PUSHBUTTON      "清空日志", IDC_BUTTON_CLEAR_LOG, 325, 190, 45, 14, WS_TABSTOP
 END
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     0,1,0,1
+PRODUCTVERSION  0,1,0,1
+FILEFLAGSMASK   0x3fL
+FILEFLAGS       0x0L
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404b0"
+        BEGIN
+            VALUE "CompanyName",      "Kabirz"
+            VALUE "FileDescription",  "固件升级工具 (CAN)"
+            VALUE "FileVersion",      "0.1.0.1"
+            VALUE "InternalName",     "can-upgrade"
+            VALUE "LegalCopyright",   "Copyright (C) 2026 Kabirz"
+            VALUE "OriginalFilename", "can-upgrade.exe"
+            VALUE "ProductName",      "CAN固件升级工具"
+            VALUE "ProductVersion",   "0.1.0.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0804, 1200
+    END
+END
