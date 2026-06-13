@@ -91,6 +91,26 @@ jobs:
           path: can-dx/target/dx/can-dx/release/windows/app/can-dx.exe
           if-no-files-found: error
 
+  windows-go:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: can-walk/go.mod
+
+      - name: Build can-walk
+        working-directory: can-walk
+        run: go build -ldflags="-H windowsgui -s -w"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: can-walk-windows
+          path: can-walk/can-walk.exe
+          if-no-files-found: error
+
   # ── Linux builds ────────────────────────────────────────────────
 
   linux-cmake:
@@ -158,6 +178,7 @@ jobs:
       - windows-cmake
       - windows-cargo
       - windows-dx
+      - windows-go
       - linux-cmake
       - linux-dx
     runs-on: ubuntu-latest
@@ -175,6 +196,7 @@ jobs:
           cp artifacts/win32c-windows/build/Release/can-upgrade.exe dist/win32c.exe
           cp artifacts/win32cpp-windows/build/Release/can-upgrade.exe dist/win32cpp.exe
           cp artifacts/can-dx-windows/can-dx.exe dist/can-dx-windows.exe
+          cp artifacts/can-walk-windows/can-walk.exe dist/can-walk.exe
           cp artifacts/can-dx-linux/can-dx dist/can-dx-linux
           cp artifacts/rust-windows/can-firmware-upgrade.exe dist/can-firmware-upgrade.exe
           cp artifacts/can-webkitGTK-linux/can-webkitgtk dist/can-webkitgtk
