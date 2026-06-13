@@ -1,2 +1,5 @@
 out
 target
+.codegraph
+*.exe
+build
