@@ -104,18 +104,25 @@ static int waitResponse(CanManager* mgr, uint32_t* code, uint32_t* val, int time
             *code = f->code;
             *val = f->val;
             return 1;
-        } else if (st == PCAN_ERROR_QRCVEMPTY) {
-            Sleep(1);
         }
+        Sleep(1);  /* 队列空 / 收到非目标帧 / 其它错误，统一让出 CPU */
     }
     return 0;
+}
+
+/* 构造一个发往板卡(PLATFORM_RX)的 8 字节命令帧 */
+static TPCANMsg makeCmd(uint32_t code, uint32_t val) {
+    TPCANMsg msg = { .ID = PLATFORM_RX, .MSGTYPE = PCAN_MODE_STANDARD, .LEN = 8 };
+    can_frame_t* f = (can_frame_t*)msg.DATA;
+    f->code = code;
+    f->val = val;
+    return msg;
 }
 
 uint32_t CanManager_GetFirmwareVersion(CanManager* mgr) {
     if (!mgr || !checkChannel(mgr)) return 0;
     EnterCriticalSection(&mgr->criticalSection);
-    TPCANMsg msg = {.ID = PLATFORM_RX, .MSGTYPE = PCAN_MODE_STANDARD, .LEN = 8};
-    ((can_frame_t*)msg.DATA)->code = BOARD_VERSION;
+    TPCANMsg msg = makeCmd(BOARD_VERSION, 0);
     if (Pcan_Write(mgr->channel, &msg) != PCAN_ERROR_OK) {
         LeaveCriticalSection(&mgr->criticalSection);
         logMsg(mgr, "CAN 发送失败");
@@ -143,8 +150,7 @@ uint32_t CanManager_GetFirmwareVersion(CanManager* mgr) {
 int CanManager_BoardReboot(CanManager* mgr) {
     if (!mgr || !checkChannel(mgr)) return 0;
     EnterCriticalSection(&mgr->criticalSection);
-    TPCANMsg msg = {.ID = PLATFORM_RX, .MSGTYPE = PCAN_MODE_STANDARD, .LEN = 8};
-    ((can_frame_t*)msg.DATA)->code = BOARD_REBOOT;
+    TPCANMsg msg = makeCmd(BOARD_REBOOT, 0);
     TPCANStatus st = Pcan_Write(mgr->channel, &msg);
     LeaveCriticalSection(&mgr->criticalSection);
     if (st != PCAN_ERROR_OK) {
@@ -154,24 +160,26 @@ int CanManager_BoardReboot(CanManager* mgr) {
     return 1;
 }
 
-static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int testMode) {
-    char log[256];
+static int doFirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int testMode) {
+    char path[MAX_PATH * 4];  /* UTF-8 最坏 4 字节/字符 */
+    WideCharToMultiByte(CP_UTF8, 0, fileName, -1, path, sizeof(path), NULL, NULL);
+
     HANDLE hFile = CreateFileW(fileName, GENERIC_READ, FILE_SHARE_READ, NULL,
                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
-        WideCharToMultiByte(CP_UTF8, 0, fileName, -1, log + 20, 200, NULL, NULL);
-        sprintf(log, "无法打开文件: %s", log + 20);
+        char log[256 + MAX_PATH * 4];
+        sprintf(log, "无法打开文件: %s", path);
         logMsg(mgr, log);
         return 0;
     }
     DWORD fileSize = GetFileSize(hFile, NULL);
-    sprintf(log, "固件大小: %u 字节", fileSize);
-    logMsg(mgr, log);
+    {
+        char log[64];
+        sprintf(log, "固件大小: %u 字节", fileSize);
+        logMsg(mgr, log);
+    }
 
-    TPCANMsg msg = {.ID = PLATFORM_RX, .MSGTYPE = PCAN_MODE_STANDARD, .LEN = 8};
-    ((can_frame_t*)msg.DATA)->code = BOARD_START_UPDATE;
-    ((can_frame_t*)msg.DATA)->val = fileSize;
-
+    TPCANMsg msg = makeCmd(BOARD_START_UPDATE, fileSize);
     if (Pcan_Write(mgr->channel, &msg) != PCAN_ERROR_OK) {
         CloseHandle(hFile);
         logMsg(mgr, "发送固件大小失败");
@@ -185,6 +193,7 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
     }
     if (code != FW_CODE_OFFSET || offset != 0) {
         CloseHandle(hFile);
+        char log[128];
         sprintf(log, "Flash 擦除失败: code(%u), offset(%u)", code, offset);
         logMsg(mgr, log);
         return 0;
@@ -201,7 +210,7 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
         bytesSent += bytesRead;
         if (bytesSent % 64 == 0 || bytesSent == fileSize) {
             if (mgr->progressCallback)
-                mgr->progressCallback((int)(bytesSent * 100 / fileSize));
+                mgr->progressCallback((int)((uint64_t)bytesSent * 100 / fileSize));
             if (!waitResponse(mgr, &code, &offset, 5000)) {
                 CloseHandle(hFile);
                 logMsg(mgr, "固件更新超时");
@@ -210,6 +219,7 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
             if (code == FW_CODE_UPDATE_SUCCESS && offset == bytesSent) break;
             if (code != FW_CODE_OFFSET) {
                 CloseHandle(hFile);
+                char log[128];
                 sprintf(log, "固件升级失败: code(%u), offset(%u)", code, offset);
                 logMsg(mgr, log);
                 return 0;
@@ -219,12 +229,7 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
     CloseHandle(hFile);
     if (mgr->progressCallback) mgr->progressCallback(100);
 
-    msg.ID = PLATFORM_RX;
-    msg.LEN = 8;
-    memset(msg.DATA, 0, 8);
-    ((can_frame_t*)msg.DATA)->code = BOARD_CONFIRM;
-    ((can_frame_t*)msg.DATA)->val = testMode ? 0 : 1;
-
+    msg = makeCmd(BOARD_CONFIRM, testMode ? 0 : 1);
     if (Pcan_Write(mgr->channel, &msg) != PCAN_ERROR_OK) {
         logMsg(mgr, "发送确认失败");
         return 0;
@@ -234,8 +239,8 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
         return 0;
     }
     if (code == FW_CODE_CONFIRM && offset == 0x55AA55AA) {
-        WideCharToMultiByte(CP_UTF8, 0, fileName, -1, log + 20, 200, NULL, NULL);
-        sprintf(log, "文件 %s 上传完成，请重启板卡", log + 20);
+        char log[256 + MAX_PATH * 4];
+        sprintf(log, "文件 %s 上传完成，请重启板卡", path);
         logMsg(mgr, log);
         return 1;
     }
@@ -246,8 +251,9 @@ static int PCAN_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int te
 int CanManager_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int testMode) {
     if (!mgr || !ensureDriver(mgr) || !checkChannel(mgr)) return 0;
     EnterCriticalSection(&mgr->criticalSection);
+    int result = doFirmwareUpgrade(mgr, fileName, testMode);
     LeaveCriticalSection(&mgr->criticalSection);
-    return PCAN_FirmwareUpgrade(mgr, fileName, testMode);
+    return result;
 }
 
 int CanManager_DetectDevice(CanManager* mgr, TPCANHandle* channels, int maxCount) {

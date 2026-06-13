@@ -22,12 +22,6 @@
 #define IDC_BUTTON_CLEAR_LOG            314
 #define IDC_LABEL_PERCENT               315
 
-#define ID_TIMER_RESPONSE               401
-
-#define WINDOW_WIDTH                    600
-#define WINDOW_HEIGHT                   400
-#define STATUSBAR_HEIGHT                20
-
 #define IDC_STATIC                      -1
 
 #endif

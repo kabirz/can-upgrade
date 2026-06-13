@@ -12,6 +12,7 @@
 
 #define DLG(id)  GetDlgItem(hwnd, id)
 
+static HWND g_hMainDlg;
 static HWND hLog;
 static int isConnected;
 static int isUpdating;
@@ -36,7 +37,7 @@ typedef struct {
 } FirmwareUpdateParams;
 
 static void OnProgress(int percent) {
-    if (hLog) PostMessage(GetParent(hLog), WM_UPDATE_PROGRESS, percent, 0);
+    if (g_hMainDlg) PostMessage(g_hMainDlg, WM_UPDATE_PROGRESS, percent, 0);
 }
 
 static void UpdateConnectBtn(HWND hwnd);
@@ -46,6 +47,7 @@ void AppendLog(const char* msg) {
     if (!hLog) return;
     int wlen = MultiByteToWideChar(CP_UTF8, 0, msg, -1, NULL, 0);
     wchar_t* wstr = (wchar_t*)malloc(sizeof(wchar_t) * wlen);
+    if (!wstr) return;
     MultiByteToWideChar(CP_UTF8, 0, msg, -1, wstr, wlen);
     wchar_t ts[16];
     SYSTEMTIME st;
@@ -85,10 +87,21 @@ static void UpdateConnectBtn(HWND hwnd) {
     EnableWindow(DLG(IDC_BUTTON_CONNECT), idx >= 0 && g_channelCount > 0 && !isUpdating);
 }
 
+/* 升级进行中：禁用所有可能访问 CAN 通道的控件，避免与升级线程竞争；
+   恢复时 FLASH 的启用还依赖连接与文件名，由 UpdateFlashBtn 再校正 */
+static void SetBusyUI(HWND hwnd, int busy) {
+    EnableWindow(DLG(IDC_BUTTON_FLASH), !busy);
+    EnableWindow(DLG(IDC_BUTTON_BROWSE), !busy);
+    EnableWindow(DLG(IDC_CHECK_TESTMODE), !busy);
+    EnableWindow(DLG(IDC_BUTTON_CONNECT), !busy);
+    EnableWindow(DLG(IDC_BUTTON_GETVERSION), !busy);
+    EnableWindow(DLG(IDC_BUTTON_REBOOT), !busy);
+    EnableWindow(DLG(IDC_BUTTON_REFRESH), !busy);
+}
+
 static void RefreshDevices(HWND hwnd) {
     HWND hCombo = DLG(IDC_COMBO_CHANNEL);
     SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
-    CanManager_SetCallback(g_canManager, AppendLog);
     g_channelCount = CanManager_DetectDevice(g_canManager, g_channels, MAX_DEVICES);
     if (g_channelCount < 0) {
         AppendLog("缺少 PCANBasic.dll，可能未安装 PCAN 驱动，请安装驱动后重试");
@@ -115,11 +128,13 @@ DWORD WINAPI FirmwareThread(LPVOID lpParam) {
 LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_INITDIALOG: {
+        g_hMainDlg = hwnd;
+        CanManager_SetCallback(g_canManager, AppendLog);
         HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_APPICON));
         SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
         SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
         HWND hBaud = DLG(IDC_COMBO_BAUDRATE);
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < (int)(sizeof(baudNames)/sizeof(baudNames[0])); i++)
             SendMessage(hBaud, CB_ADDSTRING, 0, (LPARAM)baudNames[i]);
         SendMessage(hBaud, CB_SETCURSEL, 5, 0);
         HWND hProg = DLG(IDC_PROGRESS);
@@ -211,12 +226,17 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (wcslen(fn) == 0 || isUpdating) return TRUE;
             int test = SendMessage(DLG(IDC_CHECK_TESTMODE), BM_GETCHECK, 0, 0) == BST_CHECKED;
             isUpdating = 1;
-            EnableWindow(DLG(IDC_BUTTON_FLASH), FALSE);
-            EnableWindow(DLG(IDC_BUTTON_BROWSE), FALSE);
-            EnableWindow(DLG(IDC_CHECK_TESTMODE), FALSE);
+            SetBusyUI(hwnd, 1);
             SendMessage(DLG(IDC_PROGRESS), PBM_SETPOS, 0, 0);
 
             FirmwareUpdateParams* p = (FirmwareUpdateParams*)malloc(sizeof(*p));
+            if (!p) {
+                isUpdating = 0;
+                SetBusyUI(hwnd, 0);
+                UpdateFlashBtn(hwnd);
+                MessageBoxW(hwnd, L"内存不足", L"错误", MB_OK | MB_ICONERROR);
+                return TRUE;
+            }
             p->hwnd = hwnd;
             wcscpy(p->fileName, fn);
             p->testMode = test;
@@ -224,9 +244,8 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (!hThread) {
                 free(p);
                 isUpdating = 0;
-                EnableWindow(DLG(IDC_BUTTON_FLASH), TRUE);
-                EnableWindow(DLG(IDC_BUTTON_BROWSE), TRUE);
-                EnableWindow(DLG(IDC_CHECK_TESTMODE), TRUE);
+                SetBusyUI(hwnd, 0);
+                UpdateFlashBtn(hwnd);
                 MessageBoxW(hwnd, L"创建线程失败", L"错误", MB_OK | MB_ICONERROR);
             } else {
                 CloseHandle(hThread);
@@ -248,8 +267,7 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     }
     case WM_UPDATE_COMPLETE: {
         isUpdating = 0;
-        EnableWindow(DLG(IDC_BUTTON_BROWSE), TRUE);
-        EnableWindow(DLG(IDC_CHECK_TESTMODE), TRUE);
+        SetBusyUI(hwnd, 0);
         UpdateFlashBtn(hwnd);
         MessageBoxW(hwnd, wParam ? L"固件升级完成！请重启板卡" : L"固件升级失败，请查看日志",
                     wParam ? L"成功" : L"失败",
