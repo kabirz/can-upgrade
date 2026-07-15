@@ -147,6 +147,33 @@ uint32_t CanManager_GetFirmwareVersion(CanManager* mgr) {
     return 0;
 }
 
+uint32_t CanManager_GetFpgaVersion(CanManager* mgr) {
+    if (!mgr || !checkChannel(mgr)) return 0;
+    EnterCriticalSection(&mgr->criticalSection);
+    TPCANMsg msg = makeCmd(BOARD_FPGA_VERSION, 0);
+    if (Pcan_Write(mgr->channel, &msg) != PCAN_ERROR_OK) {
+        LeaveCriticalSection(&mgr->criticalSection);
+        logMsg(mgr, "CAN 发送失败");
+        return 0;
+    }
+    uint32_t code, version;
+    if (!waitResponse(mgr, &code, &version, 5000)) {
+        LeaveCriticalSection(&mgr->criticalSection);
+        logMsg(mgr, "CAN 读取超时");
+        return 0;
+    }
+    if (code == FW_CODE_FPGA_VERSION) {
+        char buf[64];
+        sprintf(buf, "FPGA版本: 0x%08X", version);
+        logMsg(mgr, buf);
+        LeaveCriticalSection(&mgr->criticalSection);
+        return version;
+    }
+    LeaveCriticalSection(&mgr->criticalSection);
+    logMsg(mgr, "CAN 读取数据错误");
+    return 0;
+}
+
 int CanManager_BoardReboot(CanManager* mgr) {
     if (!mgr || !checkChannel(mgr)) return 0;
     EnterCriticalSection(&mgr->criticalSection);

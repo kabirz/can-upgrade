@@ -19,6 +19,7 @@ extern "C" {
 #define BOARD_CONFIRM       1
 #define BOARD_VERSION       2
 #define BOARD_REBOOT        3
+#define BOARD_FPGA_VERSION  4
 
 #define FW_CODE_OFFSET          0
 #define FW_CODE_UPDATE_SUCCESS  1
@@ -26,6 +27,7 @@ extern "C" {
 #define FW_CODE_CONFIRM         3
 #define FW_CODE_FLASH_ERROR     4
 #define FW_CODE_TRANFER_ERROR   5
+#define FW_CODE_FPGA_VERSION    6
 
 typedef struct {
     uint32_t code;
@@ -46,6 +48,7 @@ void CanManager_SetProgressCallback(CanManager* mgr, progressCallback progress_c
 int CanManager_Connect(CanManager* mgr, TPCANHandle channel, TPCANBaudrate baudrate);
 void CanManager_Disconnect(CanManager* mgr);
 uint32_t CanManager_GetFirmwareVersion(CanManager* mgr);
+uint32_t CanManager_GetFpgaVersion(CanManager* mgr);
 int CanManager_BoardReboot(CanManager* mgr);
 int CanManager_FirmwareUpgrade(CanManager* mgr, const wchar_t* fileName, int testMode);
 int CanManager_DetectDevice(CanManager* mgr, TPCANHandle* channels, int maxCount);

@@ -6,10 +6,10 @@
 IDI_APPICON ICON "icon.ico"
 IDI_APPICON_SMALL ICON "icon.ico"
 
-IDD_MAIN DIALOGEX 270, 100, 380, 222
+IDD_MAIN DIALOGEX 270, 100, 380, 234
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_APPWINDOW
-CAPTION "固件升级工具 (CAN)"
+CAPTION "激光控制板固件升级工具 (CAN)"
 FONT 9, "Microsoft YaHei", 400, 0, 0x0
 BEGIN
     GROUPBOX        "连接设置", IDC_STATIC, 7, 7, 370, 30
@@ -32,13 +32,14 @@ BEGIN
     LTEXT           "0%", IDC_LABEL_PERCENT, 304, 90, 18, 12, SS_LEFT
     PUSHBUTTON      "开始升级", IDC_BUTTON_FLASH, 325, 90, 45, 14, WS_TABSTOP
 
-    GROUPBOX        "日志", IDC_STATIC, 7, 117, 370, 97
-    EDITTEXT        IDC_EDIT_LOG, 15, 128, 295, 78, ES_MULTILINE |
+    GROUPBOX        "日志", IDC_STATIC, 7, 117, 370, 109
+    EDITTEXT        IDC_EDIT_LOG, 15, 128, 295, 90, ES_MULTILINE |
                     ES_AUTOVSCROLL | WS_VSCROLL | ES_READONLY
     LTEXT           "固件版本: 未获取", IDC_LABEL_VERSION, 315, 130, 60, 10, SS_LEFT
-    PUSHBUTTON      "获取版本", IDC_BUTTON_GETVERSION, 325, 142, 45, 14, WS_TABSTOP
-    PUSHBUTTON      "重启板卡", IDC_BUTTON_REBOOT, 325, 165, 45, 14, WS_TABSTOP
-    PUSHBUTTON      "清空日志", IDC_BUTTON_CLEAR_LOG, 325, 190, 45, 14, WS_TABSTOP
+    LTEXT           "FPGA版本: 未获取", IDC_LABEL_FPGA_VERSION, 315, 142, 60, 10, SS_LEFT
+    PUSHBUTTON      "获取版本", IDC_BUTTON_GETVERSION, 325, 154, 45, 14, WS_TABSTOP
+    PUSHBUTTON      "重启板卡", IDC_BUTTON_REBOOT, 325, 177, 45, 14, WS_TABSTOP
+    PUSHBUTTON      "清空日志", IDC_BUTTON_CLEAR_LOG, 325, 202, 45, 14, WS_TABSTOP
 END
 
 VS_VERSION_INFO VERSIONINFO
@@ -55,12 +56,12 @@ BEGIN
         BLOCK "080404b0"
         BEGIN
             VALUE "CompanyName",      "Kabirz"
-            VALUE "FileDescription",  "固件升级工具 (CAN)"
+            VALUE "FileDescription",  "激光控制板固件升级工具 (CAN)"
             VALUE "FileVersion",      "0.1.0.1"
             VALUE "InternalName",     "can-upgrade"
             VALUE "LegalCopyright",   "Copyright (C) 2026 Kabirz"
             VALUE "OriginalFilename", "can-upgrade.exe"
-            VALUE "ProductName",      "CAN固件升级工具"
+            VALUE "ProductName",      "激光控制板固件升级工具"
             VALUE "ProductVersion",   "0.1.0.1"
         END
     END

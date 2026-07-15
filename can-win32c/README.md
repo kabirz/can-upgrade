@@ -1,6 +1,6 @@
 # can-win32c
 
-Windows 原生 Win32 API + 纯 C 实现的 CAN 固件升级工具，通过 PEAK PCAN 接口与板卡通信。
+Windows 原生 Win32 API + 纯 C 实现的 CAN 固件升级工具，通过 PEAK PCAN 接口与 **激光控制板（laser_ctrl）** 通信。
 
 本文档描述本工具使用的 **CAN 应用层协议**（帧定义、命令、交互流程），不涉及 CAN 总线本身的规范。
 

@@ -73,7 +73,10 @@ static void EnableUI(HWND hwnd, int conn) {
     } else {
         UpdateConnectBtn(hwnd);
     }
-    if (!conn) SetWindowTextW(DLG(IDC_LABEL_VERSION), L"固件版本: 未获取");
+    if (!conn) {
+        SetWindowTextW(DLG(IDC_LABEL_VERSION), L"固件版本: 未获取");
+        SetWindowTextW(DLG(IDC_LABEL_FPGA_VERSION), L"FPGA版本: 未获取");
+    }
 }
 
 static void UpdateFlashBtn(HWND hwnd) {
@@ -209,6 +212,12 @@ LRESULT CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 wsprintfW(buf, L"固件版本: v%u.%u.%u",
                           (ver >> 24) & 0xFF, (ver >> 16) & 0xFF, (ver >> 8) & 0xFF);
                 SetWindowTextW(DLG(IDC_LABEL_VERSION), buf);
+            }
+            uint32_t fpga = CanManager_GetFpgaVersion(g_canManager);
+            if (fpga) {
+                wchar_t buf[32];
+                wsprintfW(buf, L"FPGA版本: 0x%08X", fpga);
+                SetWindowTextW(DLG(IDC_LABEL_FPGA_VERSION), buf);
             }
             EnableWindow(DLG(IDC_BUTTON_GETVERSION), TRUE);
             return TRUE;
