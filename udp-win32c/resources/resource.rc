@@ -1,0 +1,68 @@
+#include <resource.h>
+#include <windows.h>
+
+#pragma code_page(65001)
+
+/* 应用程序图标 */
+IDI_APPICON ICON "icon.ico"
+IDI_APPICON_SMALL ICON "icon.ico"
+
+/* 主菜单 */
+IDR_MAINMENU MENU
+BEGIN
+    POPUP "文件(&F)"
+    BEGIN
+        MENUITEM "打开(&O)",                IDM_FILE_OPEN
+        MENUITEM "退出(&X)",                IDM_FILE_EXIT
+    END
+    POPUP "编辑(&E)"
+    BEGIN
+        MENUITEM "清空日志(&L)",            IDM_EDIT_CLEARLOG
+    END
+    POPUP "帮助(&H)"
+    BEGIN
+        MENUITEM "关于(&A)",                IDM_HELP_ABOUT
+    END
+END
+
+/* 主对话框 (380×222, 三组: 连接设置 / 固件升级 / 状态日志) */
+IDD_MAIN DIALOGEX 270, 100, 380, 222
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "UDP 固件升级工具"
+FONT 9, "Microsoft YaHei", 400, 0, 0x0
+MENU IDR_MAINMENU
+BEGIN
+    /* ===== 连接设置组 ===== */
+    GROUPBOX        "连接设置", IDC_STATIC, 7, 3, 370, 32
+    LTEXT           "目标IP:", IDC_STATIC, 20, 15, 28, 12, SS_LEFT
+    EDITTEXT        IDC_EDIT_IP, 50, 14, 75, 12, ES_AUTOHSCROLL
+    LTEXT           "本地端口:", IDC_STATIC, 130, 15, 32, 12, SS_LEFT
+    EDITTEXT        IDC_EDIT_LOCAL_PORT, 164, 14, 36, 12, ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "远程端口:", IDC_STATIC, 208, 15, 32, 12, SS_LEFT
+    EDITTEXT        IDC_EDIT_REMOTE_PORT, 242, 14, 36, 12, ES_AUTOHSCROLL | ES_NUMBER
+    PUSHBUTTON      "连接", IDC_BUTTON_CONNECT, 325, 14, 45, 14, WS_TABSTOP
+
+    /* ===== 固件升级组 ===== */
+    GROUPBOX        "固件升级", IDC_STATIC, 7, 42, 370, 70
+    LTEXT           "固件文件:", IDC_STATIC, 20, 53, 30, 12, SS_LEFT
+    EDITTEXT        IDC_EDIT_FIRMWARE, 55, 53, 260, 14, ES_AUTOHSCROLL | ES_READONLY
+    PUSHBUTTON      "浏览...", IDC_BUTTON_BROWSE, 325, 53, 45, 14, WS_TABSTOP
+    CONTROL         "测试模式(重启后恢复原固件)", IDC_CHECK_TESTMODE,
+                    "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 20, 70, 230, 12
+    LTEXT           "进度:", IDC_STATIC, 20, 90, 35, 12, SS_LEFT
+    CONTROL         "", IDC_PROGRESS, "msctls_progress32", PBS_SMOOTH,
+                    55, 90, 247, 8
+    LTEXT           "0%", IDC_LABEL_PERCENT, 304, 90, 18, 12, SS_LEFT
+    PUSHBUTTON      "开始升级", IDC_BUTTON_FLASH, 325, 90, 45, 14, WS_TABSTOP
+
+    /* ===== 状态日志和板卡命令组 ===== */
+    /* 日志框缩窄, 右侧列加宽以单行容纳 "固件版本: x.y.z" */
+    GROUPBOX        "状态日志和板卡命令", IDC_STATIC, 7, 117, 370, 97
+    EDITTEXT        IDC_EDIT_LOG, 15, 128, 285, 78, ES_MULTILINE |
+                    ES_AUTOVSCROLL | WS_VSCROLL | ES_READONLY
+    LTEXT           "固件版本: 未获取", IDC_LABEL_VERSION, 302, 128, 73, 10, SS_LEFT
+    PUSHBUTTON      "获取版本", IDC_BUTTON_GETVERSION, 325, 142, 45, 14, WS_TABSTOP
+    PUSHBUTTON      "重启板卡", IDC_BUTTON_REBOOT, 325, 160, 45, 14, WS_TABSTOP
+    PUSHBUTTON      "清空日志", IDC_BUTTON_CLEAR_LOG, 325, 178, 45, 14, WS_TABSTOP
+END
