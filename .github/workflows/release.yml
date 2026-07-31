@@ -21,6 +21,8 @@ jobs:
             preset: vs
           - name: can-win32c
           - name: win32c
+          - name: udp-win32c
+            preset: vs
           - name: win32cpp
     steps:
       - uses: actions/checkout@v4
@@ -198,6 +200,7 @@ jobs:
           cp artifacts/can-webview2-windows/out/Release/can-webview2.exe dist/can-webview2.exe
           cp artifacts/can-win32c-windows/build/Release/can-upgrade.exe dist/can-win32c.exe
           cp artifacts/win32c-windows/build/Release/can-upgrade.exe dist/win32c.exe
+          cp artifacts/udp-win32c-windows/out/Release/udp-upgrade.exe dist/udp-win32c.exe
           cp artifacts/win32cpp-windows/build/Release/can-upgrade.exe dist/win32cpp.exe
           cp artifacts/can-dx-windows/can-dx.exe dist/can-dx-windows.exe
           cp artifacts/can-walk-windows/can-walk.exe dist/can-walk.exe
