@@ -36,17 +36,33 @@
 |------|--------|------|
 | 配置端口 (9200) | 发送命令 → 监听 9201 | 监听 9200 → 回复 9201 |
 
-### 固件升级命令（配置端口 9200，帧 `[cmd 1B][data...]`）
+### 配置端口命令（配置端口 9200，帧 `[cmd 1B][data...]`）
 
-| 命令 | 上位机发送 | 固件回复 | 说明 |
-|------|-----------|---------|------|
-| FW_START 0x10 | `[0x10][size 4B LE]` | `[0x10][1/0]` | 保存 size + 擦 slot1 |
-| FW_DATA 0x11 | `[0x11][data 256B]` | `[0x11][offset 4B LE]` | 写 flash，回复累计字节数 |
-| FW_END 0x12 | `[0x12][test 1B][crc16 2B LE]` | `[0x12][1/0]` | flush + CRC 校验 + boot_request_upgrade |
+**库内命令（0x01-0x05，由 udp_fw_upgrade 库处理）**：
+
+| 命令 | 码 | 上位机发送 | 固件回复 | 说明 |
+|------|----|-----------|---------|------|
+| FW_START | 0x01 | `[0x01][size 4B LE]` | `[0x01][1/0]` | 保存 size + 擦 slot1 |
+| FW_DATA | 0x02 | `[0x02][data 256B]` | `[0x02][offset 4B LE]` | 写 flash，回复累计字节数 |
+| FW_END | 0x03 | `[0x03][test 1B][crc16 2B LE]` | `[0x03][1/0]` | flush + CRC 校验 + boot_request_upgrade |
+| GET_VERSION | 0x04 | `[0x04]` | `[0x04][version string]` | 查询固件版本 |
+| REBOOT | 0x05 | `[0x05]` | `[0x05]` | 重启设备 |
+
+**应用业务命令（0x10+，由应用回调处理）**：
+
+| 命令 | 码 | 说明 |
+|------|----|------|
+| SET_IP | 0x10 | 设置 IP |
+| SET_MASK | 0x11 | 设置掩码 |
+| SET_GW | 0x12 | 设置网关 |
+| SET_PORT | 0x13 | 设置数据端口 |
+| GET_CONFIG | 0x14 | 查询配置 |
+| SET_RF24_CH | 0x15 | 设置 RF24 信道 |
+| SET_RF24_ADDR | 0x16 | 设置 RF24 地址 |
 
 - **test_mode**: 0=永久升级, 1=临时升级（重启后回滚）
 - **CRC16**: Zephyr 特化的 bit-reflected CCITT 变体（非标准 MSB-first）
-- 固件 FW_END 后不自动 reboot，由上位机重启按钮触发
+- 固件 FW_END 后不自动 reboot，由上位机重启按钮（REBOOT 0x05）触发
 
 ## 目录结构
 

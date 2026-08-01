@@ -14,21 +14,23 @@
 #define GATEWAY_DATA_PORT_DEFAULT   9090  /* 数据端口默认 (可配, 固件持久化) */
 #define GATEWAY_CONFIG_PORT         9200  /* 配置端口 (固件固定, 不可改) */
 
-/* UDP 命令码 (命令帧首字节, 走配置端口 9200) */
+/* UDP 命令码 (命令帧首字节, 走配置端口 9200).
+ * 0x01-0x05: udp_fw_upgrade 库内命令 (FW_START/DATA/END/GET_VERSION/REBOOT)
+ * 0x10+:    应用业务命令 */
 enum udp_cmd {
-	UDP_CMD_SET_IP      = 0x01,
-	UDP_CMD_SET_MASK    = 0x02,
-	UDP_CMD_SET_GW      = 0x03,
-	UDP_CMD_SET_PORT    = 0x04,
-	UDP_CMD_GET_CONFIG  = 0x05,
-	UDP_CMD_GET_VERSION = 0x06,
-	UDP_CMD_SET_RF24_CH = 0x07,
-	UDP_CMD_SET_RF24_ADDR = 0x08,
-	UDP_CMD_REBOOT      = 0x09,
-	UDP_CMD_SET_REMOTE_PORT = 0x0a,
-	UDP_CMD_FW_START    = 0x10,
-	UDP_CMD_FW_DATA     = 0x11,
-	UDP_CMD_FW_END      = 0x12,
+	UDP_CMD_FW_START    = 0x01,
+	UDP_CMD_FW_DATA     = 0x02,
+	UDP_CMD_FW_END      = 0x03,
+	UDP_CMD_GET_VERSION = 0x04,
+	UDP_CMD_REBOOT      = 0x05,
+	UDP_CMD_SET_IP      = 0x10,
+	UDP_CMD_SET_MASK    = 0x11,
+	UDP_CMD_SET_GW      = 0x12,
+	UDP_CMD_SET_PORT    = 0x13,
+	UDP_CMD_GET_CONFIG  = 0x14,
+	UDP_CMD_SET_RF24_CH = 0x15,
+	UDP_CMD_SET_RF24_ADDR = 0x16,
+	UDP_CMD_SET_REMOTE_PORT = 0x17,
 };
 
 /* 通道类型: 一个 UdpManager 实例对应一个通道 (单 socket).
