@@ -335,8 +335,14 @@ static INT_PTR CALLBACK DlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 				 * 的诊断日志并发 PostMessage 导致输出交错乱码. */
 				UdpManager_StartRxThread(g_udp);
 				isConnected = 1;
-				SetConnectedUI(hwnd, 1);
-				AppendLog(ipArg ? "已连接 (单播)" : "已绑定 (广播自动发现)");
+			SetConnectedUI(hwnd, 1);
+			if (!ipArg) {
+				AppendLog("已绑定 (广播自动发现)");
+			} else if (strcmp(ipArg, "255.255.255.255") == 0) {
+				AppendLog("已绑定 (有限广播)");
+			} else {
+				AppendLog("已连接 (单播)");
+			}
 			} else {
 				MessageBoxW(hwnd,
 					L"绑定失败\n\n请检查端口是否被占用",

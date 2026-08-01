@@ -82,6 +82,57 @@ static int collect_broadcast_addrs(unsigned long *addrs, int max_cnt)
 	return cnt;
 }
 
+/* 判断给定 IP (网络序 s_addr) 是否与本机某个已启用网卡在同一子网.
+ * 用于 RX 学习对端地址前验证: 跨子网时不切单播 (单播发不过去, 保持广播). */
+static bool is_local_subnet(unsigned long ip)
+{
+	ULONG bufLen = 15000;
+	PIP_ADAPTER_ADDRESSES pAddrs = (PIP_ADAPTER_ADDRESSES)malloc(bufLen);
+	bool same = false;
+
+	if (pAddrs == NULL) {
+		return false;
+	}
+
+	ULONG flags = GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST |
+		      GAA_FLAG_SKIP_DNS_SERVER | GAA_FLAG_INCLUDE_PREFIX;
+
+	if (GetAdaptersAddresses(AF_INET, flags, NULL, pAddrs, &bufLen) != NO_ERROR) {
+		free(pAddrs);
+		return false;
+	}
+
+	for (PIP_ADAPTER_ADDRESSES p = pAddrs; p && !same; p = p->Next) {
+		if (p->OperStatus != IfOperStatusUp ||
+		    p->IfType == IF_TYPE_SOFTWARE_LOOPBACK ||
+		    p->IfType == IF_TYPE_TUNNEL) {
+			continue;
+		}
+		for (PIP_ADAPTER_UNICAST_ADDRESS ua = p->FirstUnicastAddress; ua; ua = ua->Next) {
+			struct sockaddr_in *sa = (struct sockaddr_in *)ua->Address.lpSockaddr;
+			unsigned long localip = sa->sin_addr.s_addr;
+
+			if ((localip & htonl(0xFF000000)) == htonl(0x7F000000) ||
+			    (localip & htonl(0xFFFF0000)) == htonl(0xA9FE0000) ||
+			    localip == 0) {
+				continue;
+			}
+			ULONG plen = ua->OnLinkPrefixLength;
+			if (plen == 0 || plen >= 32) {
+				continue;
+			}
+			unsigned long mask = htonl(0xFFFFFFFF << (32 - plen));
+			if ((ip & mask) == (localip & mask)) {
+				same = true;
+				break;
+			}
+		}
+	}
+
+	free(pAddrs);
+	return same;
+}
+
 
 struct UdpManager {
 	SOCKET sock;
@@ -144,6 +195,17 @@ bool UdpManager_Bind(UdpManager *mgr, UdpChannel chan,
 	mgr->sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (mgr->sock == INVALID_SOCKET) return false;
 
+	/* 强制端口独占 (SO_EXCLUSIVEADDRUSE 必须在 bind 前设). 端口被其他程序占用时
+	 * bind 失败 → Bind 返回 false → 调用方弹窗报错, 避免静默"连接成功但收不到包".
+	 * (Windows UDP 默认不强制独占; SO_REUSEADDR 更是允许抢占, 这里明确禁用) */
+	BOOL exclusive = TRUE;
+	setsockopt(mgr->sock, SOL_SOCKET, SO_EXCLUSIVEADDRUSE,
+		   (const char *)&exclusive, sizeof(exclusive));
+
+	/* 允许广播收发 (Windows 发广播必须设 SO_BROADCAST, 须在 bind 前设) */
+	BOOL broadcast = TRUE;
+	setsockopt(mgr->sock, SOL_SOCKET, SO_BROADCAST, (const char *)&broadcast, sizeof(broadcast));
+
 	/* 本地: 绑 0.0.0.0:local_port (可收广播, 多网卡由路由表自动选路) */
 	struct sockaddr_in local_addr;
 	memset(&local_addr, 0, sizeof(local_addr));
@@ -157,39 +219,48 @@ bool UdpManager_Bind(UdpManager *mgr, UdpChannel chan,
 		return false;
 	}
 
-	/* 允许广播收发 (Windows 发广播必须设 SO_BROADCAST) */
-	BOOL broadcast = TRUE;
-	setsockopt(mgr->sock, SOL_SOCKET, SO_BROADCAST, (const char *)&broadcast, sizeof(broadcast));
-
-	/* 允许多个实例/同机固件 loopback 共存 (Windows 不支持 SO_REUSEPORT) */
-	BOOL reuse = TRUE;
-	setsockopt(mgr->sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse));
-
-	/* 远程目标 = remote_ip:remote_port. remote_ip 留空/0.0.0.0/非法 → 广播自动发现;
-	 * 否则单播. 收到对端包后 RX 线程会学习并覆盖 remote_addr (单播时与指定一致).
+	/* 远程目标 = remote_ip:remote_port.
+	 *   remote_ip = "255.255.255.255" → 有限广播 (255.255.255.255, 唯一能跨网段到达的方式)
+	 *   remote_ip 留空/0.0.0.0/非法   → 子网定向广播自动发现 (收集各网卡广播地址)
+	 *   其它                          → 单播到该 IP
+	 * 收到对端包后 RX 线程会学习并覆盖 remote_addr (单播时与指定一致).
 	 * 显式重置 broadcast_mode, 避免上次会话残留 (IP 学习会把广播切为单播). */
 	bool unicast = false;
+	bool limited_bcast = false;     /* 显式 255.255.255.255: 有限广播 (跨网段可达) */
 	memset(&mgr->remote_addr, 0, sizeof(mgr->remote_addr));
 	mgr->remote_addr.sin_family = AF_INET;
 	mgr->remote_addr.sin_port = htons(remote_port);
 	if (remote_ip && *remote_ip) {
-		unsigned long a = inet_addr(remote_ip);
-		if (a != INADDR_NONE && a != 0) {
-			mgr->remote_addr.sin_addr.s_addr = a;
-			unicast = true;
+		/* inet_addr("255.255.255.255") 在 Winsock 返回 INADDR_NONE (与 0xFFFFFFFF 同值),
+		 * 故用字符串比较显式识别有限广播, 避免歧义. */
+		if (strcmp(remote_ip, "255.255.255.255") == 0) {
+			limited_bcast = true;
+		} else {
+			unsigned long a = inet_addr(remote_ip);
+			if (a != INADDR_NONE && a != 0) {
+				mgr->remote_addr.sin_addr.s_addr = a;
+				unicast = true;
+			}
 		}
 	}
 	mgr->broadcast_mode = false;   /* 默认单播; 下方广播分支会覆盖 */
 	if (!unicast) {
-		/* 广播模式: 收集所有非回环网卡的子网定向广播地址, 发送时逐个发出,
-		 * 确保板子无论连哪个网卡都能收到 (Windows 对 255.255.255.255 无法选路) */
 		mgr->broadcast_mode = true;
-		mgr->bcast_cnt = collect_broadcast_addrs(mgr->bcast_addrs,
-							 (int)(sizeof(mgr->bcast_addrs) / sizeof(mgr->bcast_addrs[0])));
-		if (mgr->bcast_cnt == 0) {
-			/* 兜底: 取不到网卡信息时退回有限广播 */
+		if (limited_bcast) {
+			/* 显式有限广播 255.255.255.255: 唯一能跨网段到达设备的方式 (路由器/驱动层转发).
+			 * 子网定向广播 (x.x.x.255) 只在本地子网有效, 跨网段到不了设备. */
 			mgr->bcast_addrs[0] = INADDR_BROADCAST;
 			mgr->bcast_cnt = 1;
+		} else {
+			/* 自动发现: 收集所有非回环网卡的子网定向广播地址, 发送时逐个发出,
+			 * 确保板子无论连哪个网卡都能收到 */
+			mgr->bcast_cnt = collect_broadcast_addrs(mgr->bcast_addrs,
+								 (int)(sizeof(mgr->bcast_addrs) / sizeof(mgr->bcast_addrs[0])));
+			if (mgr->bcast_cnt == 0) {
+				/* 兜底: 取不到网卡信息时退回有限广播 */
+				mgr->bcast_addrs[0] = INADDR_BROADCAST;
+				mgr->bcast_cnt = 1;
+			}
 		}
 		mgr->remote_addr.sin_addr.s_addr = mgr->bcast_addrs[0];  /* 供提示消息显示 */
 	}
@@ -599,10 +670,12 @@ static DWORD WINAPI udp_rx_thread_proc(LPVOID param)
 		}
 
 		/* 学习发送方地址 (后续发包到此).
-		 * 广播模式下收到首个回复 → 自动切换为单播 (用此地址),
-		 * 避免后续每包仍广播整个子网, 提升稳定性与效率. */
-		mgr->remote_addr = src;
-		mgr->broadcast_mode = false;
+		 * 仅当对端与本机同子网时才切单播; 跨子网 (如设备经路由回复) 单播发不过去,
+		 * 此时保持广播模式, 确保后续通信可达. */
+		if (is_local_subnet(src.sin_addr.s_addr)) {
+			mgr->remote_addr = src;
+			mgr->broadcast_mode = false;
+		}
 
 		/* 按 chan 分发 */
 		if (mgr->chan == UDP_CHAN_CONFIG) {
